@@ -89,6 +89,7 @@ interface LayerUIProps {
   langCode: Language["code"];
   renderTopLeftUI?: ExcalidrawProps["renderTopLeftUI"];
   renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
+  renderToolbarUI?: ExcalidrawProps["renderToolbarUI"];
   renderCustomStats?: ExcalidrawProps["renderCustomStats"];
   UIOptions: AppProps["UIOptions"];
   onExportImage: AppClassProperties["onExportImage"];
@@ -151,6 +152,7 @@ const LayerUI = ({
   showExitZenModeBtn,
   renderTopLeftUI,
   renderTopRightUI,
+  renderToolbarUI,
   renderCustomStats,
   UIOptions,
   onExportImage,
@@ -365,6 +367,7 @@ const LayerUI = ({
                           onPenModeToggle={onPenModeToggle}
                           onLockToggle={onLockToggle}
                           heading={heading}
+                          renderToolbarUI={renderToolbarUI}
                         />
                         {isCollaborating && (
                           <Island

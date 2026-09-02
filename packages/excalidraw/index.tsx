@@ -82,6 +82,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onPointerUpdate,
     renderTopLeftUI,
     renderTopRightUI,
+    renderToolbarUI,
     langCode = defaultLang.code,
     viewModeEnabled,
     interaction,
@@ -226,6 +227,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onPointerUpdate={onPointerUpdate}
           renderTopLeftUI={renderTopLeftUI}
           renderTopRightUI={renderTopRightUI}
+          renderToolbarUI={renderToolbarUI}
           langCode={langCode}
           viewModeEnabled={viewModeEnabled}
           interaction={interaction}
@@ -470,6 +472,11 @@ export { parseLibraryTokensFromUrl, useHandleLibrary } from "./data/library";
 
 export { Sidebar } from "./components/Sidebar/Sidebar";
 export { Button } from "./components/Button";
+export {
+  IconButton as ToolbarButton,
+  type IconButtonProps as ToolbarButtonProps,
+} from "./components/IconButton";
+export { default as ToolbarMenu } from "./components/dropdownMenu/DropdownMenu";
 export { Footer };
 export { MainMenu };
 export { Ellipsify } from "./components/Ellipsify";

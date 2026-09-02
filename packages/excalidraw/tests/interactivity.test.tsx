@@ -770,7 +770,21 @@ describe("ui={{ enabled: ... }}", () => {
   });
 });
 
-describe("ui={false} with host UI", () => {
+describe("host UI", () => {
+  it("renders host tools inside the desktop toolbar", async () => {
+    const { container } = await render(
+      <Excalidraw
+        renderToolbarUI={() => <button data-testid="host-toolbar-tool" />}
+      />,
+    );
+
+    expect(
+      container
+        .querySelector(".App-toolbar")
+        ?.querySelector("[data-testid='host-toolbar-tool']"),
+    ).not.toBe(null);
+  });
+
   it("renders host outlets and dialogs invoked by host UI", async () => {
     const { container } = await render(
       <Excalidraw

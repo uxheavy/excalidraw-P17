@@ -2332,7 +2332,12 @@ class App extends React.Component<AppProps, AppState> {
 
   public render() {
     const selectedElements = this.scene.getSelectedElements(this.state);
-    const { renderTopRightUI, renderTopLeftUI, renderCustomStats } = this.props;
+    const {
+      renderTopRightUI,
+      renderTopLeftUI,
+      renderToolbarUI,
+      renderCustomStats,
+    } = this.props;
 
     const {
       elementsMap: renderableElementsMap,
@@ -2473,6 +2478,7 @@ class App extends React.Component<AppProps, AppState> {
                             langCode={getLanguage().code}
                             renderTopLeftUI={renderTopLeftUI}
                             renderTopRightUI={renderTopRightUI}
+                            renderToolbarUI={renderToolbarUI}
                             renderCustomStats={renderCustomStats}
                             showExitZenModeBtn={
                               typeof this.props?.zenModeEnabled ===

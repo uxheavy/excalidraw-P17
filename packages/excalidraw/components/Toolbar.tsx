@@ -209,6 +209,7 @@ export const Toolbar = ({
   onPenModeToggle,
   onLockToggle,
   heading,
+  renderToolbarUI,
 }: {
   app: AppClassProperties;
   appState: UIAppState;
@@ -217,6 +218,7 @@ export const Toolbar = ({
   onPenModeToggle: AppClassProperties["togglePenMode"];
   onLockToggle: () => void;
   heading: React.ReactNode;
+  renderToolbarUI?: AppProps["renderToolbarUI"];
 }) => {
   const editorInterface = useEditorInterface();
   const isCompactStylesPanel = useStylesPanelMode() === "compact";
@@ -294,6 +296,8 @@ export const Toolbar = ({
           className="App-toolbar__divider"
           style={{ marginLeft: "0.25rem" }}
         />
+
+        {renderToolbarUI?.(appState)}
 
         <ExtraToolsDropdown
           app={app}

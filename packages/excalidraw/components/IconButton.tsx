@@ -33,7 +33,7 @@ type IconButtonBaseProps = {
   isLoading?: boolean;
 };
 
-type IconButtonProps =
+export type IconButtonProps =
   | (IconButtonBaseProps & {
       type: "button";
       children?: React.ReactNode;
