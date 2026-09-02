@@ -7,9 +7,9 @@ const { spawn, spawnSync } = require("child_process");
 const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIRECTORY = path.join(REPOSITORY_ROOT, "packages");
 const PUBLIC_BASE_COMMIT = "abeeaeba217ab3b5193b78c8d8d63c373b518ced";
-const FORK_SOURCE_COMMIT = "3fda2808a51cb8b310cfa447231ed58d5d4d34af";
+const FORK_SOURCE_COMMIT = "ce4cf4880607bcfdc28829a3d572d37d842fe742";
 const PUBLIC_INTERNAL_PACKAGE_VERSION = "0.18.0-abeeaeb";
-const FORK_PACKAGE_VERSION = "0.18.1-3fda2808";
+const FORK_PACKAGE_VERSION = "0.18.1-ce4cf488";
 const RELEASE_TAG = `packages-v${FORK_PACKAGE_VERSION}`;
 const RELEASE_ASSET_BASE_URL = `https://github.com/uxheavy/excalidraw-P17/releases/download/${RELEASE_TAG}`;
 const CHANGED_PACKAGES = ["common", "excalidraw"];
@@ -263,6 +263,9 @@ createRoot(document.getElementById("root")!).render(
       },
     ]}
     toolShortcutOverrides={{ freedraw: [{ key: "d" }] }}
+    renderHostElement={(element) =>
+      element.type === "rectangle" ? <span>Host content</span> : null
+    }
   />,
 );
 `,
