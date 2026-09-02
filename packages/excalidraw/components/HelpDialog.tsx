@@ -10,7 +10,7 @@ import { probablySupportsClipboardBlob } from "../clipboard";
 import { t } from "../i18n";
 import { getShortcutKey } from "../shortcut";
 
-import { isHostToolbarMenu } from "./HostToolbar";
+import { getShortcutLabel, isHostToolbarMenu } from "./HostToolbar";
 import { getToolShortcutKeys, type ToolbarToolType } from "./Tools";
 
 import { useExcalidrawActionManager } from "./App";
@@ -192,6 +192,12 @@ export const HelpDialog = ({
               label={t("toolBar.freedraw")}
               shortcuts={toolShortcuts("freedraw")}
             />
+            {toolShortcuts("autoshape").length > 0 && (
+              <Shortcut
+                label={t("toolBar.autoshape")}
+                shortcuts={toolShortcuts("autoshape")}
+              />
+            )}
             <Shortcut
               label={t("toolBar.text")}
               shortcuts={toolShortcuts("text")}
@@ -227,9 +233,7 @@ export const HelpDialog = ({
                 <Shortcut
                   key={item.id}
                   label={item.label}
-                  shortcuts={(item.shortcuts ?? []).map(({ key, shiftKey }) =>
-                    shiftKey ? `Shift+${key.toUpperCase()}` : key.toUpperCase(),
-                  )}
+                  shortcuts={(item.shortcuts ?? []).map(getShortcutLabel)}
                 />
               ))}
             <Shortcut

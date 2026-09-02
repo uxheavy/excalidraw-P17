@@ -8,6 +8,7 @@ import type { ExcalidrawElement } from "@excalidraw/element/types";
 import { actionZoomIn } from "../actions/actionCanvas";
 import { createPasteEvent, serializeAsClipboardJSON } from "../clipboard";
 import { DefaultSidebar, Excalidraw, Footer, MainMenu } from "../index";
+import { getShortcutKey } from "../shortcut";
 
 import { API } from "./helpers/api";
 import { Keyboard, Pointer, UI } from "./helpers/ui";
@@ -808,7 +809,18 @@ describe("host UI", () => {
             label: "Sources",
             items: [],
           },
+          {
+            id: "host-command",
+            label: "Host command",
+            shortcuts: [
+              { key: "k", ctrlOrCmd: true, altKey: true, shiftKey: true },
+            ],
+            onSelect: () => {},
+          },
         ]}
+        toolShortcutOverrides={{
+          autoshape: [{ key: "x", shiftKey: true }],
+        }}
         renderTopLeftUI={() => <input data-testid="host-input" />}
       />,
     );
@@ -832,6 +844,22 @@ describe("host UI", () => {
     await waitFor(() =>
       expect(document.querySelector(".HelpDialog")).not.toBe(null),
     );
+    const shortcutRows = [
+      ...document.querySelectorAll(".HelpDialog__shortcut"),
+    ];
+    const shortcutKeys = (label: string) =>
+      [
+        ...shortcutRows
+          .find((row) => row.textContent?.includes(label))!
+          .querySelectorAll("kbd"),
+      ].map((key) => key.textContent);
+    expect(shortcutKeys("Draw to shape")).toEqual(["Shift", "X"]);
+    expect(shortcutKeys("Host command")).toEqual([
+      getShortcutKey("CtrlOrCmd"),
+      getShortcutKey("Alt"),
+      getShortcutKey("Shift"),
+      "K",
+    ]);
     fireEvent.keyDown(editor, { key: "w" });
     expect(onSelect).toHaveBeenCalledTimes(1);
   });

@@ -27,7 +27,7 @@ const shortcutMatches = (shortcut: EditorShortcut, event: KeyboardEvent) =>
     ? event.ctrlKey || event.metaKey
     : !event.ctrlKey && !event.metaKey);
 
-const getShortcutLabel = (shortcut: EditorShortcut) => {
+export const getShortcutLabel = (shortcut: EditorShortcut) => {
   const modifiers = [
     shortcut.ctrlOrCmd ? getShortcutKey("CtrlOrCmd") : null,
     shortcut.altKey ? getShortcutKey("Alt") : null,
