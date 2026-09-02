@@ -1456,7 +1456,15 @@ class App extends React.Component<AppProps, AppState> {
   ) {
     if (ref) {
       this.iFrameRefs.set(element.id, ref);
+    } else {
+      this.iFrameRefs.delete(element.id);
     }
+  }
+
+  private shouldLoadEmbeddable(
+    element: NonDeleted<ExcalidrawEmbeddableElement>,
+  ): boolean {
+    return this.props.shouldLoadEmbeddable?.(element) !== false;
   }
 
   /**
@@ -1613,6 +1621,13 @@ class App extends React.Component<AppProps, AppState> {
     const iframeLikeElement = hitElement;
 
     if (
+      isEmbeddableElement(iframeLikeElement) &&
+      !this.shouldLoadEmbeddable(iframeLikeElement)
+    ) {
+      this.props.onEmbeddableLoadRequest?.(iframeLikeElement);
+    }
+
+    if (
       this.state.activeEmbeddable?.element === iframeLikeElement &&
       this.state.activeEmbeddable?.state === "active"
     ) {
@@ -1626,9 +1641,27 @@ class App extends React.Component<AppProps, AppState> {
     //    without the delay youtube will immediately open the video
     //    in fullscreen mode
     setTimeout(() => {
+      const latestIframeLikeElement = this.scene.getNonDeletedElement(
+        iframeLikeElement.id,
+      );
+      if (
+        !latestIframeLikeElement ||
+        !isIframeLikeElement(latestIframeLikeElement)
+      ) {
+        return;
+      }
+      if (
+        isEmbeddableElement(latestIframeLikeElement) &&
+        !this.shouldLoadEmbeddable(latestIframeLikeElement)
+      ) {
+        return;
+      }
       this.setState({
-        activeEmbeddable: { element: iframeLikeElement, state: "active" },
-        selectedElementIds: { [iframeLikeElement.id]: true },
+        activeEmbeddable: {
+          element: latestIframeLikeElement,
+          state: "active",
+        },
+        selectedElementIds: { [latestIframeLikeElement.id]: true },
         newElement: null,
         selectionElement: null,
       });
@@ -1925,7 +1958,10 @@ class App extends React.Component<AppProps, AppState> {
             src = getEmbedLink(toValidURL(el.link || ""));
           }
 
+          const shouldLoadContent =
+            isIframeElement(el) || this.shouldLoadEmbeddable(el);
           const isActive =
+            shouldLoadContent &&
             this.state.activeEmbeddable?.element === el &&
             this.state.activeEmbeddable?.state === "active";
           const isHovered =
@@ -2018,33 +2054,36 @@ class App extends React.Component<AppProps, AppState> {
                       transform: `scale(${1 / embeddableViewportScale})`,
                     }}
                   >
-                    {(isEmbeddableElement(el)
-                      ? this.props.renderEmbeddable?.(el, this.state)
-                      : null) ?? (
-                      <iframe
-                        ref={(ref) => this.cacheEmbeddableRef(el, ref)}
-                        className="excalidraw__embeddable"
-                        srcDoc={
-                          src?.type === "document"
-                            ? src.srcdoc(this.state.theme)
-                            : undefined
-                        }
-                        src={
-                          src?.type !== "document" ? src?.link ?? "" : undefined
-                        }
-                        // https://stackoverflow.com/q/18470015
-                        scrolling="no"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        title="Excalidraw Embedded Content"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen={true}
-                        sandbox={`${
-                          src?.sandbox?.allowSameOrigin
-                            ? "allow-same-origin"
-                            : ""
-                        } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`}
-                      />
-                    )}
+                    {shouldLoadContent &&
+                      ((isEmbeddableElement(el)
+                        ? this.props.renderEmbeddable?.(el, this.state)
+                        : null) ?? (
+                        <iframe
+                          ref={(ref) => this.cacheEmbeddableRef(el, ref)}
+                          className="excalidraw__embeddable"
+                          srcDoc={
+                            src?.type === "document"
+                              ? src.srcdoc(this.state.theme)
+                              : undefined
+                          }
+                          src={
+                            src?.type !== "document"
+                              ? src?.link ?? ""
+                              : undefined
+                          }
+                          // https://stackoverflow.com/q/18470015
+                          scrolling="no"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          title="Excalidraw Embedded Content"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen={true}
+                          sandbox={`${
+                            src?.sandbox?.allowSameOrigin
+                              ? "allow-same-origin"
+                              : ""
+                          } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`}
+                        />
+                      ))}
                   </div>
                 </div>
                 {isPendingGeneration && (
@@ -2597,6 +2636,8 @@ class App extends React.Component<AppProps, AppState> {
                                 this.state.viewBackgroundColor,
                               embedsValidationStatus:
                                 this.embedsValidationStatus,
+                              shouldLoadEmbeddable:
+                                this.props.shouldLoadEmbeddable,
                               elementsPendingErasure:
                                 this.elementsPendingErasure,
                               pendingFlowchartNodes:
@@ -2620,6 +2661,8 @@ class App extends React.Component<AppProps, AppState> {
                                   this.state.viewBackgroundColor,
                                 embedsValidationStatus:
                                   this.embedsValidationStatus,
+                                shouldLoadEmbeddable:
+                                  this.props.shouldLoadEmbeddable,
                                 elementsPendingErasure:
                                   this.elementsPendingErasure,
                                 pendingFlowchartNodes: null,
