@@ -421,6 +421,9 @@ export {
 
 export { reconcileElements } from "./data/reconcile";
 
+export { getSyncableElements, isSyncableElement } from "./data/collaboration";
+export type { SyncableExcalidrawElement } from "./data/collaboration";
+
 export {
   exportToCanvas,
   exportToBlob,
