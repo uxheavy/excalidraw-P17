@@ -7,9 +7,9 @@ const { spawn, spawnSync } = require("child_process");
 const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIRECTORY = path.join(REPOSITORY_ROOT, "packages");
 const PUBLIC_BASE_COMMIT = "abeeaeba217ab3b5193b78c8d8d63c373b518ced";
-const FORK_SOURCE_COMMIT = "924b02ea07813f0ca8612d88c86cf9968cffc9f1";
+const FORK_SOURCE_COMMIT = "583b3c3c69320b4bf4d78d1de947ff8f44119d8a";
 const PUBLIC_PACKAGE_VERSION = "0.18.0-abeeaeb";
-const FORK_PACKAGE_VERSION = "0.18.0-924b02ea";
+const FORK_PACKAGE_VERSION = "0.18.0-583b3c3c";
 const RELEASE_TAG = `packages-v${FORK_PACKAGE_VERSION}`;
 const RELEASE_ASSET_BASE_URL = `https://github.com/uxheavy/excalidraw-P17/releases/download/${RELEASE_TAG}`;
 const CHANGED_PACKAGES = ["common", "excalidraw"];
@@ -178,8 +178,11 @@ const pack = (stagingDirectory, outputDirectory, npmCache) => {
   return path.join(outputDirectory, filename);
 };
 
-const sha256 = (filename) =>
-  crypto.createHash("sha256").update(fs.readFileSync(filename)).digest("hex");
+const digest = (algorithm, filename, encoding) =>
+  crypto
+    .createHash(algorithm)
+    .update(fs.readFileSync(filename))
+    .digest(encoding);
 
 const writeConsumer = (directory, mainTarball) => {
   fs.mkdirSync(path.join(directory, "src"), { recursive: true });
@@ -243,7 +246,15 @@ import {
 } from "@uxheavy/excalidraw";
 
 type OnPaste = NonNullable<React.ComponentProps<typeof Excalidraw>["onPaste"]>;
+type ShouldLoadEmbeddable = NonNullable<
+  React.ComponentProps<typeof Excalidraw>["shouldLoadEmbeddable"]
+>;
+type OnEmbeddableLoadRequest = NonNullable<
+  React.ComponentProps<typeof Excalidraw>["onEmbeddableLoadRequest"]
+>;
 const onPaste: OnPaste = async () => [] as const;
+const shouldLoadEmbeddable: ShouldLoadEmbeddable = () => false;
+const onEmbeddableLoadRequest: OnEmbeddableLoadRequest = () => undefined;
 const syncableElements: readonly SyncableExcalidrawElement[] =
   getSyncableElements([]);
 const syncabilityCheck = isSyncableElement;
@@ -252,7 +263,11 @@ void syncableElements;
 void syncabilityCheck;
 
 createRoot(document.getElementById("root")!).render(
-  <Excalidraw onPaste={onPaste} />,
+  <Excalidraw
+    onPaste={onPaste}
+    shouldLoadEmbeddable={shouldLoadEmbeddable}
+    onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+  />,
 );
 `,
   );
@@ -365,10 +380,15 @@ const main = async () => {
 
     const commonTarball = pack(commonStage, artifactStagingDirectory, npmCache);
     const mainTarball = pack(mainStage, artifactStagingDirectory, npmCache);
-    const artifacts = [commonTarball, mainTarball].map((filename) => ({
-      filename: path.basename(filename),
-      sha256: sha256(filename),
-    }));
+    const artifacts = [commonTarball, mainTarball].map((filename) => {
+      const sha512Base64 = digest("sha512", filename, "base64");
+      return {
+        filename: path.basename(filename),
+        sha256: digest("sha256", filename, "hex"),
+        sha512: digest("sha512", filename, "hex"),
+        integrity: `sha512-${sha512Base64}`,
+      };
+    });
     const artifactManifest = {
       schemaVersion: 1,
       source: {
