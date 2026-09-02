@@ -1,5 +1,6 @@
 import {
   CaptureUpdateAction,
+  getSyncableElements,
   getSceneVersion,
   restoreElements,
   zoomToFitBounds,
@@ -50,6 +51,7 @@ import type {
   Gesture,
   UserToFollow,
 } from "@excalidraw/excalidraw/types";
+import type { SyncableExcalidrawElement } from "@excalidraw/excalidraw";
 import type { Mutable, ValueOf } from "@excalidraw/common/utility-types";
 
 import { appJotaiStore, atom } from "../app-jotai";
@@ -63,11 +65,7 @@ import {
   SYNC_FULL_SCENE_INTERVAL_MS,
   WS_EVENTS,
 } from "../app_constants";
-import {
-  generateCollaborationLinkData,
-  getCollaborationLink,
-  getSyncableElements,
-} from "../data";
+import { generateCollaborationLinkData, getCollaborationLink } from "../data";
 import {
   encodeFilesForUpload,
   FileManager,
@@ -91,10 +89,7 @@ import { resetBrowserStateVersions } from "../data/tabSync";
 import { collabErrorIndicatorAtom } from "./CollabError";
 import Portal from "./Portal";
 
-import type {
-  SocketUpdateDataSource,
-  SyncableExcalidrawElement,
-} from "../data";
+import type { SocketUpdateDataSource } from "../data";
 
 export const collabAPIAtom = atom<CollabAPI | null>(null);
 export const isCollaboratingAtom = atom(false);

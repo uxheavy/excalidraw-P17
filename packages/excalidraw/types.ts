@@ -828,10 +828,14 @@ export interface ExcalidrawProps {
     button: "down" | "up";
     pointersMap: Gesture["pointers"];
   }) => void;
+  /**
+   * Return false to cancel native paste handling, ClipboardData to replace the
+   * parsed payload, or elements to replace only the parsed elements.
+   */
   onPaste?: (
     data: ClipboardData,
     event: ClipboardEvent | null,
-  ) => Promise<boolean> | boolean;
+  ) => MaybePromise<boolean | ClipboardData | readonly ExcalidrawElement[]>;
   /**
    * Called when element(s) are duplicated so you can listen or modify as
    * needed.

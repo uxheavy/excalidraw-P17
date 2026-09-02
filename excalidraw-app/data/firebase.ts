@@ -1,4 +1,4 @@
-import { reconcileElements } from "@excalidraw/excalidraw";
+import { getSyncableElements, reconcileElements } from "@excalidraw/excalidraw";
 import { MIME_TYPES, toBrandedType } from "@excalidraw/common";
 import { decompressData } from "@excalidraw/excalidraw/data/encode";
 import {
@@ -29,12 +29,10 @@ import type {
   BinaryFileMetadata,
   DataURL,
 } from "@excalidraw/excalidraw/types";
+import type { SyncableExcalidrawElement } from "@excalidraw/excalidraw";
 
 import { FILE_CACHE_MAX_AGE_SEC } from "../app_constants";
 
-import { getSyncableElements } from ".";
-
-import type { SyncableExcalidrawElement } from ".";
 import type Portal from "../collab/Portal";
 import type { Socket } from "socket.io-client";
 

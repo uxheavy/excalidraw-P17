@@ -94,6 +94,49 @@ beforeEach(async () => {
 });
 
 describe("general paste behavior", () => {
+  it("awaits replacement elements before native insertion", async () => {
+    unmountComponent();
+
+    const replacement = API.createElement({
+      type: "ellipse",
+      id: "replacement",
+      groupIds: ["native-group"],
+    });
+    const onPaste = vi.fn(async () => {
+      await Promise.resolve();
+      return [replacement];
+    });
+
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        onPaste={onPaste}
+      />,
+    );
+    Object.assign(document, {
+      elementFromPoint: () => GlobalTestState.canvas,
+    });
+
+    const clipboardJSON = await serializeAsClipboardJSON({
+      elements: [API.createElement({ type: "rectangle" })],
+      files: null,
+    });
+    pasteWithCtrlCmdV(clipboardJSON);
+
+    await waitFor(() => {
+      expect(onPaste).toHaveBeenCalledTimes(1);
+      expect(h.elements).toHaveLength(1);
+      expect(h.elements[0]).toMatchObject({
+        type: "ellipse",
+      });
+      expect(h.elements[0].groupIds).toHaveLength(1);
+      expect(h.elements[0].groupIds[0]).not.toBe(replacement.groupIds[0]);
+      expect(h.elements[0].id).not.toBe(replacement.id);
+      expect(h.elements[0].seed).not.toBe(replacement.seed);
+    });
+  });
+
   it("should randomize seed on paste", async () => {
     const rectangle = API.createElement({ type: "rectangle" });
     const clipboardJSON = await serializeAsClipboardJSON({

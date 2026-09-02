@@ -4681,12 +4681,21 @@ class App extends React.Component<AppProps, AppState> {
 
       const filesList = dataTransferList.getFiles();
 
-      const data = await parseClipboard(dataTransferList, isPlainPaste);
+      let data = await parseClipboard(dataTransferList, isPlainPaste);
 
       if (this.props.onPaste) {
         try {
-          if ((await this.props.onPaste(data, event)) === false) {
+          const onPasteResult = await this.props.onPaste(data, event);
+          if (onPasteResult === false) {
             return;
+          }
+          if (Array.isArray(onPasteResult)) {
+            data = {
+              ...data,
+              elements: onPasteResult as readonly ExcalidrawElement[],
+            };
+          } else if (onPasteResult && onPasteResult !== true) {
+            data = onPasteResult as ClipboardData;
           }
         } catch (error: any) {
           console.error(error);
