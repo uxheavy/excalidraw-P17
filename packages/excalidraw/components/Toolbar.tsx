@@ -183,27 +183,33 @@ const ExtraToolsDropdown = ({
             {t("toolBar.lasso")}
           </DropdownMenu.Item>
         )}
-        <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
-          Generate
-        </div>
-        {app.props.aiEnabled !== false && <TTDDialogTriggerTunnel.Out />}
-        <DropdownMenu.Item
-          onSelect={() => app.setOpenDialog({ name: "ttd", tab: "mermaid" })}
-          icon={mermaidLogoIcon}
-          data-testid="toolbar-embeddable"
-        >
-          {t("toolBar.mermaidToExcalidraw")}
-        </DropdownMenu.Item>
-        {app.props.aiEnabled !== false && app.plugins.diagramToCode && (
-          <DropdownMenu.Item
-            onSelect={() => app.onMagicframeToolSelect()}
-            icon={MagicIcon}
-            data-testid="toolbar-magicframe"
-            badge={<DropdownMenu.Item.Badge>AI</DropdownMenu.Item.Badge>}
-            disabled={isToolButtonDisabled(app, "magicframe")}
-          >
-            {t("toolBar.magicframe")}
-          </DropdownMenu.Item>
+        {app.props.aiEnabled !== false && (
+          <>
+            <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
+              Generate
+            </div>
+            <TTDDialogTriggerTunnel.Out />
+            <DropdownMenu.Item
+              onSelect={() =>
+                app.setOpenDialog({ name: "ttd", tab: "mermaid" })
+              }
+              icon={mermaidLogoIcon}
+              data-testid="toolbar-embeddable"
+            >
+              {t("toolBar.mermaidToExcalidraw")}
+            </DropdownMenu.Item>
+            {app.plugins.diagramToCode && (
+              <DropdownMenu.Item
+                onSelect={() => app.onMagicframeToolSelect()}
+                icon={MagicIcon}
+                data-testid="toolbar-magicframe"
+                badge={<DropdownMenu.Item.Badge>AI</DropdownMenu.Item.Badge>}
+                disabled={isToolButtonDisabled(app, "magicframe")}
+              >
+                {t("toolBar.magicframe")}
+              </DropdownMenu.Item>
+            )}
+          </>
         )}
       </DropdownMenu.Content>
     </DropdownMenu>
