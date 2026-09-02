@@ -411,8 +411,8 @@ const _renderStaticScene = ({
             isIframeLikeElement(element) &&
             (isExporting ||
               (isEmbeddableElement(element) &&
-                renderConfig.embedsValidationStatus.get(element.id) !==
-                  true)) &&
+                (renderConfig.embedsValidationStatus.get(element.id) !== true ||
+                  renderConfig.shouldLoadEmbeddable?.(element) === false))) &&
             element.width &&
             element.height
           ) {

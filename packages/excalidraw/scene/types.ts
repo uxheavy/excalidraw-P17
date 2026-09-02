@@ -1,6 +1,8 @@
 import type { UserIdleState, EditorInterface } from "@excalidraw/common";
 import type {
+  ExcalidrawEmbeddableElement,
   ExcalidrawElement,
+  NonDeleted,
   NonDeletedElementsMap,
   NonDeletedExcalidrawElement,
   NonDeletedSceneElementsMap,
@@ -37,6 +39,9 @@ export type StaticCanvasRenderConfig = {
    CSS filters), and we disable render optimizations for best output */
   isExporting: boolean;
   embedsValidationStatus: EmbedsValidationStatus;
+  shouldLoadEmbeddable?: (
+    element: NonDeleted<ExcalidrawEmbeddableElement>,
+  ) => boolean;
   elementsPendingErasure: ElementsPendingErasure;
   pendingFlowchartNodes: PendingExcalidrawElements | null;
   theme: AppState["theme"];

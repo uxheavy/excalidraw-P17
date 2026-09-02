@@ -968,6 +968,22 @@ export interface ExcalidrawProps {
     | RegExp
     | RegExp[]
     | ((link: string) => boolean | undefined);
+  /**
+   * Whether native content for a validated Web Embed should be loaded.
+   * Called during render and must be pure. Returning false preserves the
+   * native placeholder without mounting host-rendered or iframe content.
+   * Defaults to true. This does not affect iframe interaction activation.
+   */
+  shouldLoadEmbeddable?: (
+    element: NonDeleted<ExcalidrawEmbeddableElement>,
+  ) => boolean;
+  /**
+   * Called from the native click/tap activation gesture for an unloaded Web
+   * Embed. The host may update `shouldLoadEmbeddable` in response.
+   */
+  onEmbeddableLoadRequest?: (
+    element: NonDeleted<ExcalidrawEmbeddableElement>,
+  ) => void;
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,

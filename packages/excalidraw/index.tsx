@@ -109,6 +109,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onDuplicate,
     children,
     validateEmbeddable,
+    shouldLoadEmbeddable,
+    onEmbeddableLoadRequest,
     renderEmbeddable,
     aiEnabled,
     showDeprecatedFonts,
@@ -251,6 +253,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           userToFollow={userToFollow}
           onDuplicate={onDuplicate}
           validateEmbeddable={validateEmbeddable}
+          shouldLoadEmbeddable={shouldLoadEmbeddable}
+          onEmbeddableLoadRequest={onEmbeddableLoadRequest}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}

@@ -1234,17 +1234,17 @@ describe("interaction={{ enabled: { embeds / interactiveContent } }}", () => {
   });
 
   const addEmbeddable = () => {
-    const embed = API.createElement({
-      type: "embeddable",
-      x: 20,
-      y: 20,
-      width: 120,
-      height: 90,
-    });
-    API.setElements([embed]);
-    API.updateElement(embed, {
+    const embed = {
+      ...API.createElement({
+        type: "embeddable",
+        x: 20,
+        y: 20,
+        width: 120,
+        height: 90,
+      }),
       link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    });
+    };
+    API.setElements([embed]);
     return embed;
   };
 
@@ -1258,12 +1258,17 @@ describe("interaction={{ enabled: { embeds / interactiveContent } }}", () => {
     await waitFor(() => expect(h.state.width).toBe(200));
     const embed = addEmbeddable();
 
+    mouse.reset();
+    mouse.moveTo(80, 65);
+
+    await waitFor(() => {
+      expect(queryContainer("iframe.excalidraw__embeddable")).not.toBe(null);
+    });
+
     expect(h.app.isEmbedsEnabled()).toBe(true);
     expect(h.app.isLinksEnabled()).toBe(false);
     expect(queryContainer(".excalidraw--embeds")).not.toBe(null);
 
-    mouse.reset();
-    mouse.moveTo(80, 65);
     expect(h.state.activeEmbeddable).toMatchObject({
       element: expect.objectContaining({ id: embed.id }),
       state: "hover",
@@ -1279,6 +1284,83 @@ describe("interaction={{ enabled: { embeds / interactiveContent } }}", () => {
     // consumed by the embed itself)
     mouse.clickAt(5, 5);
     expect(h.state.activeEmbeddable).toBe(null);
+  });
+
+  it("requests host enablement before loading native embeddable content", async () => {
+    let shouldLoad = false;
+    let grantRequest = false;
+    const onEmbeddableLoadRequest = vi.fn(() => {
+      if (!grantRequest) {
+        return;
+      }
+      shouldLoad = true;
+      API.setElements(
+        h.elements.map((element) => ({
+          ...element,
+          customData: { ...element.customData, hostRevision: 1 },
+        })),
+      );
+      GlobalTestState.renderResult.rerender(
+        <Excalidraw
+          interaction={{ enabled: { embeds: true } }}
+          validateEmbeddable={true}
+          shouldLoadEmbeddable={() => shouldLoad}
+          onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+        />,
+      );
+    });
+
+    await render(
+      <Excalidraw
+        interaction={{ enabled: { embeds: true } }}
+        validateEmbeddable={true}
+        shouldLoadEmbeddable={() => shouldLoad}
+        onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    addEmbeddable();
+
+    mouse.reset();
+    mouse.moveTo(80, 65);
+
+    await waitFor(() => {
+      expect(queryContainer(".excalidraw__embeddable-container")).not.toBe(
+        null,
+      );
+    });
+    expect(queryContainer("iframe.excalidraw__embeddable")).toBe(null);
+
+    mouse.downAt(80, 65);
+    mouse.upAt(100, 65);
+    expect(onEmbeddableLoadRequest).not.toHaveBeenCalled();
+
+    mouse.clickAt(80, 65);
+    expect(onEmbeddableLoadRequest).toHaveBeenCalledTimes(1);
+    await sleep(150);
+    expect(queryContainer("iframe.excalidraw__embeddable")).toBe(null);
+    expect(h.state.activeEmbeddable?.state).not.toBe("active");
+
+    grantRequest = true;
+    mouse.clickAt(80, 65);
+    expect(onEmbeddableLoadRequest).toHaveBeenCalledTimes(2);
+
+    const iframe = await waitFor(() => {
+      const element = queryContainer(
+        "iframe.excalidraw__embeddable",
+      ) as HTMLIFrameElement | null;
+      expect(element).not.toBe(null);
+      return element!;
+    });
+    expect(iframe.getAttribute("referrerpolicy")).toBe(
+      "no-referrer-when-downgrade",
+    );
+    expect(iframe.getAttribute("sandbox")).toBe(
+      "allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads",
+    );
+    await waitFor(() => {
+      expect(h.state.activeEmbeddable).toMatchObject({ state: "active" });
+    });
   });
 
   it("without embeds allowed, embeddables stay inert", async () => {
