@@ -307,7 +307,10 @@ export const Toolbar = ({
           style={{ marginLeft: "0.25rem" }}
         />
 
-        <HostToolbar items={hostToolbarItems} />
+        <HostToolbar
+          items={hostToolbarItems}
+          toolShortcutOverrides={app.props.toolShortcutOverrides}
+        />
 
         <ExtraToolsDropdown
           app={app}

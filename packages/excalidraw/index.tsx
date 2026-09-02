@@ -508,6 +508,7 @@ export type {
   ExcalidrawToolId,
   HostToolbarButton,
   HostToolbarItem,
+  HostToolbarMenuDescriptor,
   ToolShortcutOverrides,
 } from "./types";
 

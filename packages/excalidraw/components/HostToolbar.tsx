@@ -1,8 +1,9 @@
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { getShortcutKey } from "../shortcut";
 
+import { getToolShortcuts, TOOLS } from "./Tools";
 import { IconButton } from "./IconButton";
 import DropdownMenu from "./dropdownMenu/DropdownMenu";
 
@@ -10,7 +11,13 @@ import type {
   EditorShortcut,
   HostToolbarButton,
   HostToolbarItem,
+  HostToolbarMenuDescriptor,
+  ToolShortcutOverrides,
 } from "../types";
+
+export const isHostToolbarMenu = (
+  item: HostToolbarItem,
+): item is HostToolbarMenuDescriptor => "items" in item;
 
 const shortcutMatches = (shortcut: EditorShortcut, event: KeyboardEvent) =>
   event.key.toLowerCase() === shortcut.key.toLowerCase() &&
@@ -29,10 +36,24 @@ const getShortcutLabel = (shortcut: EditorShortcut) => {
   return [...modifiers, shortcut.key.toUpperCase()].join("+");
 };
 
+const shortcutId = (shortcut: EditorShortcut) =>
+  `${shortcut.ctrlOrCmd ? "ctrl-or-cmd:" : ""}${shortcut.altKey ? "alt:" : ""}${
+    shortcut.shiftKey ? "shift:" : ""
+  }${shortcut.key.toLowerCase()}`;
+
+const getAriaShortcutLabels = (shortcut: EditorShortcut) => {
+  const suffix = `${shortcut.altKey ? "Alt+" : ""}${
+    shortcut.shiftKey ? "Shift+" : ""
+  }${shortcut.key.toUpperCase()}`;
+  return shortcut.ctrlOrCmd
+    ? [`Control+${suffix}`, `Meta+${suffix}`]
+    : [suffix];
+};
+
 export const getHostToolbarShortcuts = (
   item: HostToolbarItem | HostToolbarButton,
 ): readonly EditorShortcut[] => {
-  if ("type" in item && item.type === "menu") {
+  if (isHostToolbarMenu(item)) {
     return item.items.flatMap((child) => child.shortcuts ?? []);
   }
   return item.shortcuts ?? [];
@@ -43,7 +64,7 @@ export const findHostToolbarItemByShortcut = (
   event: KeyboardEvent,
 ): HostToolbarButton | null => {
   for (const item of items ?? []) {
-    if ("type" in item && item.type === "menu") {
+    if (isHostToolbarMenu(item)) {
       const child = item.items.find(
         (candidate) =>
           !candidate.disabled &&
@@ -51,7 +72,9 @@ export const findHostToolbarItemByShortcut = (
             shortcutMatches(shortcut, event),
           ),
       );
-      if (child) return child;
+      if (child) {
+        return child;
+      }
       continue;
     }
     if (
@@ -66,11 +89,55 @@ export const findHostToolbarItemByShortcut = (
   return null;
 };
 
-const HostToolbarMenu = ({
-  item,
-}: {
-  item: Extract<HostToolbarItem, { type: "menu" }>;
-}) => {
+export const findActiveHostToolbarItem = (
+  items: readonly HostToolbarItem[] | undefined,
+): HostToolbarButton | null => {
+  for (const item of items ?? []) {
+    if (isHostToolbarMenu(item)) {
+      const child = item.items.find((candidate) => candidate.checked);
+      if (child) {
+        return child;
+      }
+    } else if (item.checked) {
+      return item;
+    }
+  }
+  return null;
+};
+
+export const getHostToolbarShortcutCollisions = (
+  items: readonly HostToolbarItem[] | undefined,
+  overrides?: ToolShortcutOverrides,
+) => {
+  const owners = new Map<string, string[]>();
+  const add = (shortcut: EditorShortcut, owner: string) => {
+    const id = shortcutId(shortcut);
+    owners.set(id, [...(owners.get(id) ?? []), owner]);
+  };
+
+  for (const type of Object.keys(TOOLS) as (keyof typeof TOOLS)[]) {
+    getToolShortcuts(type, overrides).forEach((shortcut) =>
+      add(shortcut, `tool:${type}`),
+    );
+  }
+  for (const item of items ?? []) {
+    const buttons = isHostToolbarMenu(item) ? item.items : [item];
+    buttons.forEach((button) =>
+      (button.shortcuts ?? []).forEach((shortcut) =>
+        add(shortcut, `host:${button.id}`),
+      ),
+    );
+  }
+
+  return [...owners.entries()]
+    .filter(([, shortcutsOwners]) => shortcutsOwners.length > 1)
+    .map(
+      ([shortcut, shortcutOwners]) =>
+        `${shortcut} (${shortcutOwners.join(", ")})`,
+    );
+};
+
+const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -109,9 +176,13 @@ const HostToolbarMenu = ({
 const HostToolbarButtonView = ({ item }: { item: HostToolbarButton }) => {
   const shared = {
     icon: item.icon,
-    keyBindingLabel: item.shortcuts?.[0]?.key.toUpperCase(),
+    keyBindingLabel: item.shortcuts?.[0]
+      ? getShortcutLabel(item.shortcuts[0])
+      : undefined,
     "aria-label": item.label,
-    "aria-keyshortcuts": item.shortcuts?.map(getShortcutLabel).join(", "),
+    "aria-keyshortcuts": item.shortcuts
+      ?.flatMap(getAriaShortcutLabels)
+      .join(" "),
     title: item.shortcuts?.length
       ? `${item.label} — ${item.shortcuts.map(getShortcutLabel).join(" or ")}`
       : item.label,
@@ -134,16 +205,28 @@ const HostToolbarButtonView = ({ item }: { item: HostToolbarButton }) => {
 
 export const HostToolbar = ({
   items,
+  toolShortcutOverrides,
 }: {
   items?: readonly HostToolbarItem[];
-}) => (
-  <>
-    {(items ?? []).map((item) =>
-      "type" in item && item.type === "menu" ? (
-        <HostToolbarMenu key={item.id} item={item} />
-      ) : (
-        <HostToolbarButtonView key={item.id} item={item} />
-      ),
-    )}
-  </>
-);
+  toolShortcutOverrides?: ToolShortcutOverrides;
+}) => {
+  const collisions = getHostToolbarShortcutCollisions(
+    items,
+    toolShortcutOverrides,
+  );
+  if (process.env.NODE_ENV !== "production" && collisions.length) {
+    throw new Error(`Duplicate Excalidraw shortcuts: ${collisions.join("; ")}`);
+  }
+
+  return (
+    <>
+      {(items ?? []).map((item) =>
+        isHostToolbarMenu(item) ? (
+          <HostToolbarMenuView key={item.id} item={item} />
+        ) : (
+          <HostToolbarButtonView key={item.id} item={item} />
+        ),
+      )}
+    </>
+  );
+};

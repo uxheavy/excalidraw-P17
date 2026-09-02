@@ -184,18 +184,20 @@ export type HostToolbarButton = Readonly<{
   disabled?: boolean;
   checked?: boolean;
   onSelect: () => void;
+  /** Cancels this command when it is active and Escape is pressed on canvas. */
+  onCancel?: () => void;
 }>;
 
-export type HostToolbarItem =
-  | HostToolbarButton
-  | Readonly<{
-      id: string;
-      type: "menu";
-      label: string;
-      icon?: JSX.Element;
-      disabled?: boolean;
-      items: readonly HostToolbarButton[];
-    }>;
+export type HostToolbarMenuDescriptor = Readonly<{
+  id: string;
+  type: "menu";
+  label: string;
+  icon?: JSX.Element;
+  disabled?: boolean;
+  items: readonly HostToolbarButton[];
+}>;
+
+export type HostToolbarItem = HostToolbarButton | HostToolbarMenuDescriptor;
 
 export type ToolShortcutOverrides = Partial<
   Record<ExcalidrawToolId, readonly EditorShortcut[]>

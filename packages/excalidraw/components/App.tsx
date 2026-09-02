@@ -68,6 +68,7 @@ import {
   getFontString,
   getNearestScrollableContainer,
   isInputLike,
+  isInteractive,
   isToolIcon,
   isWritableElement,
   sceneCoordsToViewportCoords,
@@ -454,7 +455,10 @@ import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
 import { AppStateObserver, type OnStateChange } from "./AppStateObserver";
 
 import { findShapeByKey, TOGGLE_TOOLS } from "./Tools";
-import { findHostToolbarItemByShortcut } from "./HostToolbar";
+import {
+  findActiveHostToolbarItem,
+  findHostToolbarItemByShortcut,
+} from "./HostToolbar";
 
 import UnlockPopup from "./UnlockPopup";
 
@@ -5453,7 +5457,12 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
-      if (event.isComposing) {
+      const nativeKeyboardEvent =
+        "nativeEvent" in event ? event.nativeEvent : event;
+      if (
+        nativeKeyboardEvent.isComposing ||
+        nativeKeyboardEvent.keyCode === 229
+      ) {
         return;
       }
 
@@ -5617,7 +5626,22 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
-      if (!this.state.openDialog) {
+      if (
+        !this.state.openDialog &&
+        !this.state.contextMenu &&
+        !isInteractive(event.target)
+      ) {
+        if (event.key === KEYS.ESCAPE) {
+          const activeHostToolbarItem = findActiveHostToolbarItem(
+            this.props.hostToolbarItems,
+          );
+          if (activeHostToolbarItem?.onCancel) {
+            event.preventDefault();
+            event.stopPropagation();
+            activeHostToolbarItem.onCancel();
+            return;
+          }
+        }
         const hostToolbarItem = findHostToolbarItemByShortcut(
           this.props.hostToolbarItems,
           event as KeyboardEvent,

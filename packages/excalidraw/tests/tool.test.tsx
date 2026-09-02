@@ -10,7 +10,10 @@ import {
 import { Excalidraw } from "../index";
 
 import { findShapeByKey } from "../components/Tools";
-import { findHostToolbarItemByShortcut } from "../components/HostToolbar";
+import {
+  findHostToolbarItemByShortcut,
+  getHostToolbarShortcutCollisions,
+} from "../components/HostToolbar";
 
 import { API } from "./helpers/api";
 import { Pointer } from "./helpers/ui";
@@ -136,7 +139,7 @@ describe("findShapeByKey()", () => {
           bucketfill: [],
         },
       },
-    } as AppClassProperties;
+    } as unknown as AppClassProperties;
 
     expect(findShapeByKey("d", app)).toBe("freedraw");
     expect(findShapeByKey("b", app)).toBe("freedraw");
@@ -176,6 +179,28 @@ describe("findShapeByKey()", () => {
         new KeyboardEvent("keydown", { key: "W", shiftKey: true }),
       ),
     ).toBeNull();
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W", metaKey: true }),
+      ),
+    ).toBeNull();
+  });
+
+  it("reports collisions across host and resolved native shortcuts", () => {
+    expect(
+      getHostToolbarShortcutCollisions(
+        [
+          {
+            id: "work-item",
+            label: "Work item",
+            shortcuts: [{ key: "w" }],
+            onSelect: () => {},
+          },
+        ],
+        { rectangle: [{ key: "w" }] },
+      ),
+    ).toEqual(["w (tool:rectangle, host:work-item)"]);
   });
 });
 

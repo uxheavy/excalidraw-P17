@@ -791,6 +791,51 @@ describe("host UI", () => {
     ).not.toBe(null);
   });
 
+  it("dispatches host shortcuts only from the guarded editor surface", async () => {
+    const onSelect = vi.fn();
+    const { container } = await render(
+      <Excalidraw
+        hostToolbarItems={[
+          {
+            id: "work-item",
+            label: "Work item",
+            shortcuts: [{ key: "w" }],
+            onSelect,
+          },
+          {
+            id: "sources",
+            type: "menu",
+            label: "Sources",
+            items: [],
+          },
+        ]}
+        renderTopLeftUI={() => <input data-testid="host-input" />}
+      />,
+    );
+    const editor = container.querySelector(".excalidraw")!;
+
+    fireEvent.keyDown(editor, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(editor, { key: "w", metaKey: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(editor, { key: "w", isComposing: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-input']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[aria-label='Sources']")!, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(editor, { key: "?" });
+    await waitFor(() =>
+      expect(document.querySelector(".HelpDialog")).not.toBe(null),
+    );
+    fireEvent.keyDown(editor, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
   it("renders host outlets and dialogs invoked by host UI", async () => {
     const { container } = await render(
       <Excalidraw

@@ -9,6 +9,8 @@ import { getShortcutFromShortcutName } from "../actions/shortcuts";
 import { probablySupportsClipboardBlob } from "../clipboard";
 import { t } from "../i18n";
 import { getShortcutKey } from "../shortcut";
+
+import { isHostToolbarMenu } from "./HostToolbar";
 import { getToolShortcutKeys, type ToolbarToolType } from "./Tools";
 
 import { useExcalidrawActionManager } from "./App";
@@ -218,7 +220,7 @@ export const HelpDialog = ({
             )}
             {(hostToolbarItems ?? [])
               .flatMap((item) =>
-                "type" in item && item.type === "menu" ? item.items : [item],
+                isHostToolbarMenu(item) ? item.items : [item],
               )
               .filter((item) => item.shortcuts?.length)
               .map((item) => (

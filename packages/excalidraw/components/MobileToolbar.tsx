@@ -169,7 +169,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
       {/* Free Draw */}
       <FreedrawToolPopover {...toolProps} />
 
-      <HostToolbar items={app.props.hostToolbarItems} />
+      <HostToolbar
+        items={app.props.hostToolbarItems}
+        toolShortcutOverrides={app.props.toolShortcutOverrides}
+      />
 
       {/* Eraser */}
       <EraserToolButton {...toolProps} hideShortcut />
