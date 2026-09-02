@@ -1130,6 +1130,7 @@ export type CanvasActions = Partial<{
 export type UIOptions = Partial<{
   dockedSidebarBreakpoint: number;
   canvasActions: CanvasActions;
+  socialLinks: boolean;
   tools: {
     image: boolean;
   };
