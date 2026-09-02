@@ -774,14 +774,20 @@ describe("host UI", () => {
   it("renders host tools inside the desktop toolbar", async () => {
     const { container } = await render(
       <Excalidraw
-        renderToolbarUI={() => <button data-testid="host-toolbar-tool" />}
+        hostToolbarItems={[
+          {
+            id: "host-toolbar-tool",
+            label: "Host tool",
+            onSelect: () => {},
+          },
+        ]}
       />,
     );
 
     expect(
       container
         .querySelector(".App-toolbar")
-        ?.querySelector("[data-testid='host-toolbar-tool']"),
+        ?.querySelector("[data-testid='host-toolbar-host-toolbar-tool']"),
     ).not.toBe(null);
   });
 

@@ -166,6 +166,41 @@ export type ToolType =
 
 export type ElementOrToolType = ExcalidrawElementType | ToolType | "custom";
 
+/** A keyboard binding supplied by a host for an editor command or tool. */
+export type EditorShortcut = Readonly<{
+  key: string;
+  shiftKey?: boolean;
+  ctrlOrCmd?: boolean;
+  altKey?: boolean;
+}>;
+
+export type ExcalidrawToolId = ToolType;
+
+export type HostToolbarButton = Readonly<{
+  id: string;
+  label: string;
+  icon?: JSX.Element;
+  shortcuts?: readonly EditorShortcut[];
+  disabled?: boolean;
+  checked?: boolean;
+  onSelect: () => void;
+}>;
+
+export type HostToolbarItem =
+  | HostToolbarButton
+  | Readonly<{
+      id: string;
+      type: "menu";
+      label: string;
+      icon?: JSX.Element;
+      disabled?: boolean;
+      items: readonly HostToolbarButton[];
+    }>;
+
+export type ToolShortcutOverrides = Partial<
+  Record<ExcalidrawToolId, readonly EditorShortcut[]>
+>;
+
 export type ActiveTool =
   | {
       type: ToolType;
@@ -860,7 +895,14 @@ export interface ExcalidrawProps {
     isMobile: boolean,
     appState: UIAppState,
   ) => JSX.Element | null;
-  renderToolbarUI?: (appState: UIAppState) => JSX.Element | null;
+  /**
+   * Commands rendered as native Excalidraw toolbar controls. Host callbacks
+   * remain outside scene state, while Excalidraw owns focus, shortcuts, and
+   * accessibility semantics for the controls.
+   */
+  hostToolbarItems?: readonly HostToolbarItem[];
+  /** Replace a tool's built-in shortcuts for this editor instance. */
+  toolShortcutOverrides?: ToolShortcutOverrides;
   langCode?: Language["code"];
   viewModeEnabled?: boolean;
   /**

@@ -454,6 +454,7 @@ import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
 import { AppStateObserver, type OnStateChange } from "./AppStateObserver";
 
 import { findShapeByKey, TOGGLE_TOOLS } from "./Tools";
+import { findHostToolbarItemByShortcut } from "./HostToolbar";
 
 import UnlockPopup from "./UnlockPopup";
 
@@ -2335,7 +2336,7 @@ class App extends React.Component<AppProps, AppState> {
     const {
       renderTopRightUI,
       renderTopLeftUI,
-      renderToolbarUI,
+      hostToolbarItems,
       renderCustomStats,
     } = this.props;
 
@@ -2478,7 +2479,7 @@ class App extends React.Component<AppProps, AppState> {
                             langCode={getLanguage().code}
                             renderTopLeftUI={renderTopLeftUI}
                             renderTopRightUI={renderTopRightUI}
-                            renderToolbarUI={renderToolbarUI}
+                            hostToolbarItems={hostToolbarItems}
                             renderCustomStats={renderCustomStats}
                             showExitZenModeBtn={
                               typeof this.props?.zenModeEnabled ===
@@ -5452,6 +5453,10 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      if (event.isComposing) {
+        return;
+      }
+
       // normalize `event.key` when CapsLock is pressed #2372
 
       if (
@@ -5610,6 +5615,19 @@ class App extends React.Component<AppProps, AppState> {
 
       if (this.state.openDialog?.name === "elementLinkSelector") {
         return;
+      }
+
+      if (!this.state.openDialog) {
+        const hostToolbarItem = findHostToolbarItemByShortcut(
+          this.props.hostToolbarItems,
+          event as KeyboardEvent,
+        );
+        if (hostToolbarItem) {
+          event.preventDefault();
+          event.stopPropagation();
+          hostToolbarItem.onSelect();
+          return;
+        }
       }
 
       // Handle Alt key for bind mode

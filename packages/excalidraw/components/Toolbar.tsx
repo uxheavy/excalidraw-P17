@@ -42,6 +42,7 @@ import {
   SelectionToolPopover,
   TextToolButton,
 } from "./Tools";
+import { HostToolbar } from "./HostToolbar";
 
 import type {
   AppClassProperties,
@@ -135,7 +136,10 @@ const ExtraToolsDropdown = ({
         <DropdownMenu.Item
           onSelect={() => app.setActiveTool({ type: "autoshape" })}
           icon={drawShapeToolIcon}
-          shortcut={getToolShortcut("autoshape")}
+          shortcut={
+            getToolShortcut("autoshape", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           data-testid="toolbar-autoshape"
           selected={drawShapeToolSelected}
           disabled={isToolButtonDisabled(app, "autoshape")}
@@ -147,7 +151,10 @@ const ExtraToolsDropdown = ({
           icon={laserPointerToolIcon}
           data-testid="toolbar-laser"
           selected={laserToolSelected}
-          shortcut={KEYS.K.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("laser", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "laser")}
         >
           {t("toolBar.laser")}
@@ -157,7 +164,10 @@ const ExtraToolsDropdown = ({
           icon={bucketFillIcon}
           data-testid="toolbar-bucketfill"
           selected={bucketFillToolSelected}
-          shortcut={KEYS.B.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("bucketfill", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "bucketfill")}
         >
           {t("toolBar.bucketfill")}
@@ -209,7 +219,7 @@ export const Toolbar = ({
   onPenModeToggle,
   onLockToggle,
   heading,
-  renderToolbarUI,
+  hostToolbarItems,
 }: {
   app: AppClassProperties;
   appState: UIAppState;
@@ -218,7 +228,7 @@ export const Toolbar = ({
   onPenModeToggle: AppClassProperties["togglePenMode"];
   onLockToggle: () => void;
   heading: React.ReactNode;
-  renderToolbarUI?: AppProps["renderToolbarUI"];
+  hostToolbarItems?: AppProps["hostToolbarItems"];
 }) => {
   const editorInterface = useEditorInterface();
   const isCompactStylesPanel = useStylesPanelMode() === "compact";
@@ -297,7 +307,7 @@ export const Toolbar = ({
           style={{ marginLeft: "0.25rem" }}
         />
 
-        {renderToolbarUI?.(appState)}
+        <HostToolbar items={hostToolbarItems} />
 
         <ExtraToolsDropdown
           app={app}

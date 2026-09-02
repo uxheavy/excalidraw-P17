@@ -89,7 +89,7 @@ interface LayerUIProps {
   langCode: Language["code"];
   renderTopLeftUI?: ExcalidrawProps["renderTopLeftUI"];
   renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
-  renderToolbarUI?: ExcalidrawProps["renderToolbarUI"];
+  hostToolbarItems?: ExcalidrawProps["hostToolbarItems"];
   renderCustomStats?: ExcalidrawProps["renderCustomStats"];
   UIOptions: AppProps["UIOptions"];
   onExportImage: AppClassProperties["onExportImage"];
@@ -152,7 +152,7 @@ const LayerUI = ({
   showExitZenModeBtn,
   renderTopLeftUI,
   renderTopRightUI,
-  renderToolbarUI,
+  hostToolbarItems,
   renderCustomStats,
   UIOptions,
   onExportImage,
@@ -367,7 +367,7 @@ const LayerUI = ({
                           onPenModeToggle={onPenModeToggle}
                           onLockToggle={onLockToggle}
                           heading={heading}
-                          renderToolbarUI={renderToolbarUI}
+                          hostToolbarItems={hostToolbarItems}
                         />
                         {isCollaborating && (
                           <Island
@@ -562,6 +562,8 @@ const LayerUI = ({
         )}
       {appState.openDialog?.name === "help" && (
         <HelpDialog
+          hostToolbarItems={appProps.hostToolbarItems}
+          toolShortcutOverrides={appProps.toolShortcutOverrides}
           onClose={() => {
             setAppState({ openDialog: null });
           }}
