@@ -1496,6 +1496,122 @@ describe("interaction={{ enabled: { embeds / interactiveContent } }}", () => {
   });
 });
 
+describe("renderHostElement", () => {
+  beforeEach(() => {
+    mockBoundingClientRect();
+  });
+
+  afterEach(() => {
+    restoreOriginalGetBoundingClientRect();
+  });
+
+  it("renders host content over native elements without URL semantics", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const linkedElement = {
+      ...API.createElement({
+        type: "rectangle",
+        x: 80,
+        y: 10,
+        width: 60,
+        height: 40,
+      }),
+      link: "https://example.com",
+    };
+    const embeddableElement = {
+      ...API.createElement({
+        type: "embeddable",
+        x: 10,
+        y: 80,
+        width: 120,
+        height: 80,
+      }),
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    };
+    const renderHostElement = vi.fn((element) =>
+      element.id === hostElement.id ? (
+        <div data-testid="host-content">Host content</div>
+      ) : (
+        <div data-testid="unexpected-host-content" />
+      ),
+    );
+
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        validateEmbeddable={true}
+        renderHostElement={renderHostElement}
+        initialData={{
+          elements: [hostElement, linkedElement, embeddableElement],
+        }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    Object.assign(document, {
+      elementFromPoint: () => GlobalTestState.canvas,
+    });
+
+    expect(queryContainer("[data-testid=host-content]")).not.toBe(null);
+    expect(queryContainer("[data-testid=unexpected-host-content]")).toBe(null);
+    expect(queryContainer(".excalidraw__host-element-container")).not.toBe(
+      null,
+    );
+    expect(queryContainer(".excalidraw__embeddable-hint")).toBe(null);
+    expect(
+      renderHostElement.mock.calls.some(
+        ([element]) => element.id === linkedElement.id,
+      ),
+    ).toBe(false);
+    expect(
+      renderHostElement.mock.calls.some(
+        ([element]) => element.id === embeddableElement.id,
+      ),
+    ).toBe(false);
+
+    expect(h.state.activeEmbeddable).toBe(null);
+  });
+
+  it("leaves URL embeddable rendering and activation unchanged", async () => {
+    const embeddableElement = {
+      ...API.createElement({
+        type: "embeddable",
+        x: 20,
+        y: 20,
+        width: 120,
+        height: 90,
+      }),
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    };
+    const renderHostElement = vi.fn(() => null);
+
+    await render(
+      <Excalidraw
+        interaction={{ enabled: { embeds: true } }}
+        validateEmbeddable={true}
+        renderHostElement={renderHostElement}
+        initialData={{ elements: [embeddableElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    await waitFor(() =>
+      expect(queryContainer("iframe.excalidraw__embeddable")).not.toBe(null),
+    );
+
+    mouse.moveTo(80, 65);
+    await waitFor(() =>
+      expect(h.state.activeEmbeddable).toMatchObject({ state: "hover" }),
+    );
+    expect(renderHostElement).not.toHaveBeenCalled();
+    expect(queryContainer(".excalidraw__embeddable-hint")).not.toBe(null);
+  });
+});
+
 describe("interaction={{ enabled: { tools } }}", () => {
   const onPointerDownSpy = vi.fn();
   const onPointerUpSpy = vi.fn();

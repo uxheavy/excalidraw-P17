@@ -113,6 +113,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     validateEmbeddable,
     shouldLoadEmbeddable,
     onEmbeddableLoadRequest,
+    renderHostElement,
     renderEmbeddable,
     aiEnabled,
     showDeprecatedFonts,
@@ -259,6 +260,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           validateEmbeddable={validateEmbeddable}
           shouldLoadEmbeddable={shouldLoadEmbeddable}
           onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+          renderHostElement={renderHostElement}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}

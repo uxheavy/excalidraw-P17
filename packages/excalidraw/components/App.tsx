@@ -2105,6 +2105,78 @@ class App extends React.Component<AppProps, AppState> {
     );
   }
 
+  private renderHostElements() {
+    const renderHostElement = this.props.renderHostElement;
+    if (!renderHostElement) {
+      return null;
+    }
+
+    const scale = this.state.zoom.value;
+    const normalizedWidth = this.state.width;
+    const normalizedHeight = this.state.height;
+    const elementsMap = this.scene.getNonDeletedElementsMap();
+
+    return (
+      <>
+        {this.scene
+          .getNonDeletedElements()
+          .filter((element) => !element.link && !isIframeLikeElement(element))
+          .map((element) => {
+            const { x, y } = sceneCoordsToViewportCoords(
+              { sceneX: element.x, sceneY: element.y },
+              this.state,
+            );
+
+            if (
+              !isElementInViewport(
+                element,
+                normalizedWidth,
+                normalizedHeight,
+                this.state,
+                elementsMap,
+              )
+            ) {
+              return null;
+            }
+
+            const content = renderHostElement(element, this.state);
+            if (!content) {
+              return null;
+            }
+
+            return (
+              <div
+                key={element.id}
+                className="excalidraw__host-element-container"
+                style={{
+                  transform: `translate(${x - this.state.offsetLeft}px, ${
+                    y - this.state.offsetTop
+                  }px) scale(${scale})`,
+                  opacity: getRenderOpacity(
+                    element,
+                    getContainingFrame(element, elementsMap),
+                    this.elementsPendingErasure,
+                    null,
+                  ),
+                }}
+              >
+                <div
+                  className="excalidraw__host-element-container__inner"
+                  style={{
+                    width: `${element.width}px`,
+                    height: `${element.height}px`,
+                    transform: `rotate(${element.angle}rad)`,
+                  }}
+                >
+                  {content}
+                </div>
+              </div>
+            );
+          })}
+      </>
+    );
+  }
+
   private getFrameNameDOMId = (frameElement: ExcalidrawElement) => {
     return `${this.id}-frame-name-${frameElement.id}`;
   };
@@ -2733,6 +2805,7 @@ class App extends React.Component<AppProps, AppState> {
                               <ConvertElementTypePopup app={this} />
                             )}
                         </ExcalidrawActionManagerContext.Provider>
+                        {this.renderHostElements()}
                         {this.renderEmbeddables()}
                       </ExcalidrawElementsContext.Provider>
                     </ExcalidrawAppStateContext.Provider>

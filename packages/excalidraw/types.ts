@@ -1029,6 +1029,17 @@ export interface ExcalidrawProps {
   onEmbeddableLoadRequest?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
   ) => void;
+  /**
+   * Renders host-owned content for visible non-URL native elements. The host
+   * decides which elements it owns by returning content or null. Elements
+   * with links and iframe-like types are not passed to this callback, so the
+   * rendered content cannot enter Excalidraw's URL or iframe interaction
+   * paths.
+   */
+  renderHostElement?: (
+    element: NonDeletedExcalidrawElement,
+    appState: AppState,
+  ) => JSX.Element | null;
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,
