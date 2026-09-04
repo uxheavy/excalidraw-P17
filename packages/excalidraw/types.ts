@@ -93,6 +93,12 @@ export type Collaborator = Readonly<{
   isMuted?: boolean;
 }>;
 
+export type CollaboratorAvatarProps = Readonly<{
+  name: string;
+  src?: string;
+  size: number;
+}>;
+
 export type CollaboratorPointer = {
   x: number;
   y: number;
@@ -165,6 +171,43 @@ export type ToolType =
   | "bucketfill";
 
 export type ElementOrToolType = ExcalidrawElementType | ToolType | "custom";
+
+/** A keyboard binding supplied by a host for an editor command or tool. */
+export type EditorShortcut = Readonly<{
+  key: string;
+  shiftKey?: boolean;
+  ctrlOrCmd?: boolean;
+  altKey?: boolean;
+}>;
+
+export type ExcalidrawToolId = ToolType;
+
+export type HostToolbarButton = Readonly<{
+  id: string;
+  label: string;
+  icon?: JSX.Element;
+  shortcuts?: readonly EditorShortcut[];
+  disabled?: boolean;
+  checked?: boolean;
+  onSelect: () => void;
+  /** Cancels this command when it is active and Escape is pressed on canvas. */
+  onCancel?: () => void;
+}>;
+
+export type HostToolbarMenuDescriptor = Readonly<{
+  id: string;
+  type: "menu";
+  label: string;
+  icon?: JSX.Element;
+  disabled?: boolean;
+  items: readonly HostToolbarButton[];
+}>;
+
+export type HostToolbarItem = HostToolbarButton | HostToolbarMenuDescriptor;
+
+export type ToolShortcutOverrides = Partial<
+  Record<ExcalidrawToolId, readonly EditorShortcut[]>
+>;
 
 export type ActiveTool =
   | {
@@ -860,6 +903,21 @@ export interface ExcalidrawProps {
     isMobile: boolean,
     appState: UIAppState,
   ) => JSX.Element | null;
+  /**
+   * Renders collaborator avatars in the native user list. When omitted,
+   * Excalidraw renders its built-in color and initials avatar.
+   */
+  renderCollaboratorAvatar?: (
+    props: CollaboratorAvatarProps,
+  ) => JSX.Element | null;
+  /**
+   * Commands rendered as native Excalidraw toolbar controls. Host callbacks
+   * remain outside scene state, while Excalidraw owns focus, shortcuts, and
+   * accessibility semantics for the controls.
+   */
+  hostToolbarItems?: readonly HostToolbarItem[];
+  /** Replace a tool's built-in shortcuts for this editor instance. */
+  toolShortcutOverrides?: ToolShortcutOverrides;
   langCode?: Language["code"];
   viewModeEnabled?: boolean;
   /**
@@ -984,6 +1042,17 @@ export interface ExcalidrawProps {
   onEmbeddableLoadRequest?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
   ) => void;
+  /**
+   * Renders host-owned content for visible non-URL native elements. The host
+   * decides which elements it owns by returning content or null. Elements
+   * with links and iframe-like types are not passed to this callback, so the
+   * rendered content cannot enter Excalidraw's URL or iframe interaction
+   * paths.
+   */
+  renderHostElement?: (
+    element: NonDeletedExcalidrawElement,
+    appState: AppState,
+  ) => JSX.Element | null;
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,
@@ -1085,6 +1154,8 @@ export type CanvasActions = Partial<{
 export type UIOptions = Partial<{
   dockedSidebarBreakpoint: number;
   canvasActions: CanvasActions;
+  library: boolean;
+  socialLinks: boolean;
   tools: {
     image: boolean;
   };

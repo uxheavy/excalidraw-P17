@@ -42,6 +42,7 @@ import {
   SelectionToolPopover,
   TextToolButton,
 } from "./Tools";
+import { HostToolbar } from "./HostToolbar";
 
 import type {
   AppClassProperties,
@@ -135,7 +136,10 @@ const ExtraToolsDropdown = ({
         <DropdownMenu.Item
           onSelect={() => app.setActiveTool({ type: "autoshape" })}
           icon={drawShapeToolIcon}
-          shortcut={getToolShortcut("autoshape")}
+          shortcut={
+            getToolShortcut("autoshape", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           data-testid="toolbar-autoshape"
           selected={drawShapeToolSelected}
           disabled={isToolButtonDisabled(app, "autoshape")}
@@ -147,7 +151,10 @@ const ExtraToolsDropdown = ({
           icon={laserPointerToolIcon}
           data-testid="toolbar-laser"
           selected={laserToolSelected}
-          shortcut={KEYS.K.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("laser", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "laser")}
         >
           {t("toolBar.laser")}
@@ -157,7 +164,10 @@ const ExtraToolsDropdown = ({
           icon={bucketFillIcon}
           data-testid="toolbar-bucketfill"
           selected={bucketFillToolSelected}
-          shortcut={KEYS.B.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("bucketfill", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "bucketfill")}
         >
           {t("toolBar.bucketfill")}
@@ -173,27 +183,33 @@ const ExtraToolsDropdown = ({
             {t("toolBar.lasso")}
           </DropdownMenu.Item>
         )}
-        <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
-          Generate
-        </div>
-        {app.props.aiEnabled !== false && <TTDDialogTriggerTunnel.Out />}
-        <DropdownMenu.Item
-          onSelect={() => app.setOpenDialog({ name: "ttd", tab: "mermaid" })}
-          icon={mermaidLogoIcon}
-          data-testid="toolbar-embeddable"
-        >
-          {t("toolBar.mermaidToExcalidraw")}
-        </DropdownMenu.Item>
-        {app.props.aiEnabled !== false && app.plugins.diagramToCode && (
-          <DropdownMenu.Item
-            onSelect={() => app.onMagicframeToolSelect()}
-            icon={MagicIcon}
-            data-testid="toolbar-magicframe"
-            badge={<DropdownMenu.Item.Badge>AI</DropdownMenu.Item.Badge>}
-            disabled={isToolButtonDisabled(app, "magicframe")}
-          >
-            {t("toolBar.magicframe")}
-          </DropdownMenu.Item>
+        {app.props.aiEnabled !== false && (
+          <>
+            <div style={{ margin: "6px 0", fontSize: 14, fontWeight: 600 }}>
+              Generate
+            </div>
+            <TTDDialogTriggerTunnel.Out />
+            <DropdownMenu.Item
+              onSelect={() =>
+                app.setOpenDialog({ name: "ttd", tab: "mermaid" })
+              }
+              icon={mermaidLogoIcon}
+              data-testid="toolbar-embeddable"
+            >
+              {t("toolBar.mermaidToExcalidraw")}
+            </DropdownMenu.Item>
+            {app.plugins.diagramToCode && (
+              <DropdownMenu.Item
+                onSelect={() => app.onMagicframeToolSelect()}
+                icon={MagicIcon}
+                data-testid="toolbar-magicframe"
+                badge={<DropdownMenu.Item.Badge>AI</DropdownMenu.Item.Badge>}
+                disabled={isToolButtonDisabled(app, "magicframe")}
+              >
+                {t("toolBar.magicframe")}
+              </DropdownMenu.Item>
+            )}
+          </>
         )}
       </DropdownMenu.Content>
     </DropdownMenu>
@@ -209,6 +225,7 @@ export const Toolbar = ({
   onPenModeToggle,
   onLockToggle,
   heading,
+  hostToolbarItems,
 }: {
   app: AppClassProperties;
   appState: UIAppState;
@@ -217,6 +234,7 @@ export const Toolbar = ({
   onPenModeToggle: AppClassProperties["togglePenMode"];
   onLockToggle: () => void;
   heading: React.ReactNode;
+  hostToolbarItems?: AppProps["hostToolbarItems"];
 }) => {
   const editorInterface = useEditorInterface();
   const isCompactStylesPanel = useStylesPanelMode() === "compact";
@@ -293,6 +311,11 @@ export const Toolbar = ({
         <div
           className="App-toolbar__divider"
           style={{ marginLeft: "0.25rem" }}
+        />
+
+        <HostToolbar
+          items={hostToolbarItems}
+          toolShortcutOverrides={app.props.toolShortcutOverrides}
         />
 
         <ExtraToolsDropdown

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { THEME } from "@excalidraw/common";
 
 import { t } from "../i18n";
-import { Excalidraw, Footer, MainMenu } from "../index";
+import { DefaultSidebar, Excalidraw, Footer, MainMenu } from "../index";
 import { actionExportWithDarkMode } from "../actions/actionExport";
 
 import {
@@ -496,5 +496,36 @@ describe("<Excalidraw/>", () => {
     expect(container.querySelector(".excalidraw")).toHaveClass(
       "custom-excalidraw",
     );
+  });
+
+  describe("Test UIOptions prop", () => {
+    it("should hide the native library entry point when library is false", async () => {
+      const { container } = await render(
+        <Excalidraw UIOptions={{ library: false }} />,
+      );
+
+      expect(container.querySelector(".default-sidebar-trigger")).toBeNull();
+
+      const hostRender = await render(
+        <Excalidraw UIOptions={{ library: false }}>
+          <DefaultSidebar.Trigger title="host sidebar" />
+        </Excalidraw>,
+      );
+      expect(
+        hostRender.container.querySelector("[aria-label='host sidebar']"),
+      ).not.toBe(null);
+    });
+  });
+
+  it("initializes both editors when their language requests overlap", async () => {
+    const { container } = await render(
+      <>
+        <Excalidraw langCode="en" />
+        <Excalidraw langCode="en" />
+      </>,
+    );
+    await waitFor(() => {
+      expect(container.querySelectorAll("canvas.interactive")).toHaveLength(2);
+    });
   });
 });

@@ -8,8 +8,13 @@ import {
 } from "@excalidraw/common";
 
 import { Excalidraw } from "../index";
+import { getShortcutKey } from "../shortcut";
 
-import { findShapeByKey } from "../components/Tools";
+import { findShapeByKey, getToolShortcutKeys } from "../components/Tools";
+import {
+  findHostToolbarItemByShortcut,
+  getHostToolbarShortcutCollisions,
+} from "../components/HostToolbar";
 
 import { API } from "./helpers/api";
 import { Pointer } from "./helpers/ui";
@@ -122,6 +127,110 @@ describe("findShapeByKey()", () => {
 
     expect(findShapeByKey("R", app, true)).toBeNull();
     expect(findShapeByKey("V", app, true)).toBeNull();
+  });
+
+  it("uses host tool shortcut overrides without changing the scene", () => {
+    const app = {
+      ...appWithPreferredTool("selection"),
+      props: {
+        toolShortcutOverrides: {
+          diamond: [{ key: "3" }],
+          freedraw: ["d", "b", "x", "p"].map((key) => ({ key })),
+          autoshape: [{ key: "x", shiftKey: true }],
+          bucketfill: [],
+        },
+      },
+    } as unknown as AppClassProperties;
+
+    expect(findShapeByKey("d", app)).toBe("freedraw");
+    expect(findShapeByKey("b", app)).toBe("freedraw");
+    expect(findShapeByKey("3", app)).toBe("diamond");
+    expect(findShapeByKey("x", app, true)).toBe("autoshape");
+    expect(findShapeByKey("b", app)).not.toBe("bucketfill");
+  });
+
+  it("matches and displays modifier-bearing tool overrides", () => {
+    const app = {
+      ...appWithPreferredTool("selection"),
+      props: {
+        toolShortcutOverrides: {
+          rectangle: [{ key: "r", ctrlOrCmd: true, altKey: true }],
+        },
+      },
+    } as unknown as AppClassProperties;
+
+    expect(
+      findShapeByKey(
+        "r",
+        app,
+        new KeyboardEvent("keydown", { key: "r", metaKey: true, altKey: true }),
+      ),
+    ).toBe("rectangle");
+    expect(
+      findShapeByKey(
+        "r",
+        app,
+        new KeyboardEvent("keydown", { key: "r", altKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      getToolShortcutKeys("rectangle", app.props.toolShortcutOverrides),
+    ).toEqual([`${getShortcutKey("CtrlOrCmd")}+${getShortcutKey("Alt")}+R`]);
+  });
+
+  it("resolves host shortcuts while ignoring disabled commands", () => {
+    const onSelect = vi.fn();
+    const disabled = vi.fn();
+    const items = [
+      {
+        id: "disabled",
+        label: "Disabled",
+        disabled: true,
+        shortcuts: [{ key: "w" }],
+        onSelect: disabled,
+      },
+      {
+        id: "work-item",
+        label: "Work item",
+        shortcuts: [{ key: "w" }],
+        onSelect,
+      },
+    ] as const;
+
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W" }),
+      )?.id,
+    ).toBe("work-item");
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W", shiftKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W", metaKey: true }),
+      ),
+    ).toBeNull();
+  });
+
+  it("reports collisions across host and resolved native shortcuts", () => {
+    expect(
+      getHostToolbarShortcutCollisions(
+        [
+          {
+            id: "work-item",
+            label: "Work item",
+            shortcuts: [{ key: "w" }],
+            onSelect: () => {},
+          },
+        ],
+        { rectangle: [{ key: "w" }] },
+      ),
+    ).toEqual(["w (tool:rectangle, host:work-item)"]);
   });
 });
 

@@ -9,6 +9,7 @@ import { useTunnels } from "../context/tunnels";
 
 import DropdownMenu from "./dropdownMenu/DropdownMenu";
 import { ToolPopover } from "./ToolPopover";
+import { HostToolbar } from "./HostToolbar";
 import {
   EraserToolButton,
   FrameToolButton,
@@ -168,6 +169,11 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
       {/* Free Draw */}
       <FreedrawToolPopover {...toolProps} />
 
+      <HostToolbar
+        items={app.props.hostToolbarItems}
+        toolShortcutOverrides={app.props.toolShortcutOverrides}
+      />
+
       {/* Eraser */}
       <EraserToolButton {...toolProps} hideShortcut />
 
@@ -302,7 +308,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
           <DropdownMenu.Item
             onSelect={() => app.setActiveTool({ type: "autoshape" })}
             icon={drawShapeToolIcon}
-            shortcut={getToolShortcut("autoshape")}
+            shortcut={
+              getToolShortcut("autoshape", app.props.toolShortcutOverrides) ??
+              undefined
+            }
             data-testid="toolbar-autoshape"
             selected={drawShapeToolSelected}
             disabled={isToolButtonDisabled(app, "autoshape")}
@@ -324,7 +333,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             icon={bucketFillIcon}
             data-testid="toolbar-bucketfill"
             selected={bucketFillToolSelected}
-            shortcut={KEYS.B.toLocaleUpperCase()}
+            shortcut={
+              getToolShortcut("bucketfill", app.props.toolShortcutOverrides) ??
+              undefined
+            }
             disabled={isToolButtonDisabled(app, "bucketfill")}
           >
             {t("toolBar.bucketfill")}

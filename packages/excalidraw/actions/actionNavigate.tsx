@@ -58,12 +58,11 @@ export const actionGoToCollaborator = register<Collaborator>({
       captureUpdate: CaptureUpdateAction.EVENTUALLY,
     };
   },
-  PanelComponent: ({ updateData, data, appState }) => {
+  PanelComponent: ({ updateData, data, appState, appProps }) => {
     const { socketId, collaborator, withName, isBeingFollowed } =
       data as GoToCollaboratorComponentProps;
 
     const background = getClientColor(socketId, collaborator);
-
     const statusClassNames = clsx({
       "is-followed": isBeingFollowed,
       "is-current-user": collaborator.isCurrentUser === true,
@@ -71,6 +70,34 @@ export const actionGoToCollaborator = register<Collaborator>({
       "is-in-call": collaborator.isInCall,
       "is-muted": collaborator.isMuted,
     });
+    const name = collaborator.username || "";
+    const avatarOnClick = withName ? () => {} : () => updateData(collaborator);
+    const customAvatar = appProps.renderCollaboratorAvatar?.({
+      name,
+      src: collaborator.avatarUrl,
+      size: withName ? 24 : 28,
+    });
+    const avatar = customAvatar ?? (
+      <Avatar
+        color={background}
+        onClick={avatarOnClick}
+        name={name}
+        src={collaborator.avatarUrl}
+        className={statusClassNames}
+      />
+    );
+    const renderedAvatar = customAvatar ? (
+      <div
+        className={clsx("Avatar", statusClassNames)}
+        onClick={
+          !withName && !collaborator.isCurrentUser ? avatarOnClick : undefined
+        }
+      >
+        {customAvatar}
+      </div>
+    ) : (
+      avatar
+    );
 
     const statusIconJSX = collaborator.isInCall ? (
       collaborator.isSpeaking ? (
@@ -104,13 +131,7 @@ export const actionGoToCollaborator = register<Collaborator>({
             : () => updateData<Collaborator>(collaborator)
         }
       >
-        <Avatar
-          color={background}
-          onClick={() => {}}
-          name={collaborator.username || ""}
-          src={collaborator.avatarUrl}
-          className={statusClassNames}
-        />
+        {renderedAvatar}
         <div className="UserList__collaborator-name">
           {collaborator.username}
         </div>
@@ -131,15 +152,7 @@ export const actionGoToCollaborator = register<Collaborator>({
       <div
         className={`UserList__collaborator UserList__collaborator--avatar-only ${statusClassNames}`}
       >
-        <Avatar
-          color={background}
-          onClick={() => {
-            updateData(collaborator);
-          }}
-          name={collaborator.username || ""}
-          src={collaborator.avatarUrl}
-          className={statusClassNames}
-        />
+        {renderedAvatar}
         {statusIconJSX && (
           <div className="UserList__collaborator-status-icon">
             {statusIconJSX}

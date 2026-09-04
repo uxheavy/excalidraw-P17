@@ -68,6 +68,7 @@ import {
   getFontString,
   getNearestScrollableContainer,
   isInputLike,
+  isInteractive,
   isToolIcon,
   isWritableElement,
   sceneCoordsToViewportCoords,
@@ -359,7 +360,7 @@ import Library, { distributeLibraryItemsOnSquareGrid } from "../data/library";
 import { restoreAppState, restoreElements } from "../data/restore";
 import { getCenter, getDistance } from "../gesture";
 import { History } from "../history";
-import { defaultLang, getLanguage, languages, setLanguage, t } from "../i18n";
+import { getLanguage, resolveLanguage, setLanguage, t } from "../i18n";
 
 import {
   getScrollToContentState,
@@ -454,6 +455,10 @@ import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
 import { AppStateObserver, type OnStateChange } from "./AppStateObserver";
 
 import { findShapeByKey, TOGGLE_TOOLS } from "./Tools";
+import {
+  findActiveHostToolbarItem,
+  findHostToolbarItemByShortcut,
+} from "./HostToolbar";
 
 import UnlockPopup from "./UnlockPopup";
 
@@ -2100,6 +2105,78 @@ class App extends React.Component<AppProps, AppState> {
     );
   }
 
+  private renderHostElements() {
+    const renderHostElement = this.props.renderHostElement;
+    if (!renderHostElement) {
+      return null;
+    }
+
+    const scale = this.state.zoom.value;
+    const normalizedWidth = this.state.width;
+    const normalizedHeight = this.state.height;
+    const elementsMap = this.scene.getNonDeletedElementsMap();
+
+    return (
+      <>
+        {this.scene
+          .getNonDeletedElements()
+          .filter((element) => !element.link && !isIframeLikeElement(element))
+          .map((element) => {
+            const { x, y } = sceneCoordsToViewportCoords(
+              { sceneX: element.x, sceneY: element.y },
+              this.state,
+            );
+
+            if (
+              !isElementInViewport(
+                element,
+                normalizedWidth,
+                normalizedHeight,
+                this.state,
+                elementsMap,
+              )
+            ) {
+              return null;
+            }
+
+            const content = renderHostElement(element, this.state);
+            if (!content) {
+              return null;
+            }
+
+            return (
+              <div
+                key={element.id}
+                className="excalidraw__host-element-container"
+                style={{
+                  transform: `translate(${x - this.state.offsetLeft}px, ${
+                    y - this.state.offsetTop
+                  }px) scale(${scale})`,
+                  opacity: getRenderOpacity(
+                    element,
+                    getContainingFrame(element, elementsMap),
+                    this.elementsPendingErasure,
+                    null,
+                  ),
+                }}
+              >
+                <div
+                  className="excalidraw__host-element-container__inner"
+                  style={{
+                    width: `${element.width}px`,
+                    height: `${element.height}px`,
+                    transform: `rotate(${element.angle}rad)`,
+                  }}
+                >
+                  {content}
+                </div>
+              </div>
+            );
+          })}
+      </>
+    );
+  }
+
   private getFrameNameDOMId = (frameElement: ExcalidrawElement) => {
     return `${this.id}-frame-name-${frameElement.id}`;
   };
@@ -2332,7 +2409,13 @@ class App extends React.Component<AppProps, AppState> {
 
   public render() {
     const selectedElements = this.scene.getSelectedElements(this.state);
-    const { renderTopRightUI, renderTopLeftUI, renderCustomStats } = this.props;
+    const language = getLanguage();
+    const {
+      renderTopRightUI,
+      renderTopLeftUI,
+      hostToolbarItems,
+      renderCustomStats,
+    } = this.props;
 
     const {
       elementsMap: renderableElementsMap,
@@ -2384,6 +2467,8 @@ class App extends React.Component<AppProps, AppState> {
     return (
       <div
         translate="no"
+        lang={language.code}
+        dir={language.rtl ? "rtl" : "ltr"}
         className={clsx(
           "excalidraw excalidraw-container notranslate",
           this.props.className,
@@ -2473,6 +2558,7 @@ class App extends React.Component<AppProps, AppState> {
                             langCode={getLanguage().code}
                             renderTopLeftUI={renderTopLeftUI}
                             renderTopRightUI={renderTopRightUI}
+                            hostToolbarItems={hostToolbarItems}
                             renderCustomStats={renderCustomStats}
                             showExitZenModeBtn={
                               typeof this.props?.zenModeEnabled ===
@@ -2722,6 +2808,7 @@ class App extends React.Component<AppProps, AppState> {
                               <ConvertElementTypePopup app={this} />
                             )}
                         </ExcalidrawActionManagerContext.Provider>
+                        {this.renderHostElements()}
                         {this.renderEmbeddables()}
                       </ExcalidrawElementsContext.Provider>
                     </ExcalidrawAppStateContext.Provider>
@@ -3851,6 +3938,13 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   public componentWillUnmount() {
+    // The text editor owns window listeners and a Scene callback. Dispose it
+    // while the current Scene still owns that callback, but skip its React
+    // state updates because this lifecycle is already unmounting the App.
+    this.unmounted = true;
+    this.textWysiwygSubmitHandler?.();
+    this.textWysiwygSubmitHandler = null;
+
     // we're recreating the api object reference so that the
     // <ExcalidrawAPIContext.Provider/> picks up on it
     this.api = { ...this.api, isDestroyed: true };
@@ -3884,7 +3978,6 @@ class App extends React.Component<AppProps, AppState> {
     this.files = {};
     this.imageCache.clear();
     this.resizeObserver?.disconnect();
-    this.unmounted = true;
     this.viewport.destroy();
     this.removeEventListeners();
     this.library.destroy();
@@ -5446,6 +5539,15 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      const nativeKeyboardEvent =
+        "nativeEvent" in event ? event.nativeEvent : event;
+      if (
+        nativeKeyboardEvent.isComposing ||
+        nativeKeyboardEvent.keyCode === 229
+      ) {
+        return;
+      }
+
       // normalize `event.key` when CapsLock is pressed #2372
 
       if (
@@ -5606,6 +5708,34 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      if (
+        !this.state.openDialog &&
+        !this.state.contextMenu &&
+        !isInteractive(event.target)
+      ) {
+        if (event.key === KEYS.ESCAPE) {
+          const activeHostToolbarItem = findActiveHostToolbarItem(
+            this.props.hostToolbarItems,
+          );
+          if (activeHostToolbarItem?.onCancel) {
+            event.preventDefault();
+            event.stopPropagation();
+            activeHostToolbarItem.onCancel();
+            return;
+          }
+        }
+        const hostToolbarItem = findHostToolbarItemByShortcut(
+          this.props.hostToolbarItems,
+          event as KeyboardEvent,
+        );
+        if (hostToolbarItem) {
+          event.preventDefault();
+          event.stopPropagation();
+          hostToolbarItem.onSelect();
+          return;
+        }
+      }
+
       // Handle Alt key for bind mode
       if (event.key === KEYS.ALT) {
         if (this.state.activeTool.type === "bucketfill") {
@@ -5637,14 +5767,11 @@ class App extends React.Component<AppProps, AppState> {
 
       if (
         !shouldPreventToolSwitching &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey &&
         !this.state.newElement &&
         !this.state.selectionElement &&
         !this.state.selectedElementsAreBeingDragged
       ) {
-        const shape = findShapeByKey(event.key, this, event.shiftKey);
+        const shape = findShapeByKey(event.key, this, event);
 
         if (this.state.viewModeEnabled && !oneOf(shape, ["laser", "hand"])) {
           return;
@@ -6359,6 +6486,9 @@ class App extends React.Component<AppProps, AppState> {
       }),
       onSubmit: withBatchedUpdates(({ viaKeyboard, nextOriginalText }) => {
         this.textWysiwygSubmitHandler = null;
+        if (this.unmounted) {
+          return;
+        }
 
         const isDeleted = !nextOriginalText.trim();
         updateElement(nextOriginalText, isDeleted);
@@ -13106,6 +13236,10 @@ class App extends React.Component<AppProps, AppState> {
       MIME_TYPES.excalidrawlib,
     );
     if (excalidrawLibrary_ids || excalidrawLibrary_data) {
+      if (this.props.UIOptions.library === false) {
+        return;
+      }
+
       try {
         let libraryItems: LibraryItems | null = null;
         if (excalidrawLibrary_ids) {
@@ -13238,6 +13372,10 @@ class App extends React.Component<AppProps, AppState> {
           captureUpdate: CaptureUpdateAction.IMMEDIATELY,
         });
       } else if (ret.type === MIME_TYPES.excalidrawlib) {
+        if (this.props.UIOptions.library === false) {
+          return;
+        }
+
         await this.library
           .updateLibrary({
             libraryItems: file,
@@ -14024,11 +14162,10 @@ class App extends React.Component<AppProps, AppState> {
   watchState = () => {};
 
   private async updateLanguage() {
-    const currentLang =
-      languages.find((lang) => lang.code === this.props.langCode) ||
-      defaultLang;
-    await setLanguage(currentLang);
-    this.setAppState({});
+    const applied = await setLanguage(resolveLanguage(this.props.langCode));
+    if (applied && !this.unmounted) {
+      this.setAppState({});
+    }
   }
 }
 

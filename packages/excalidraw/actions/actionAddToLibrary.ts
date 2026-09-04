@@ -61,5 +61,7 @@ export const actionAddToLibrary = register({
         };
       });
   },
+  predicate: (_elements, _appState, appProps) =>
+    appProps.UIOptions?.library !== false,
   label: "labels.addToLibrary",
 });

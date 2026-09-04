@@ -997,3 +997,19 @@ body.excalidraw-cursor-resize * {
     font-family: "Assistant";
   }
 }
+
+.excalidraw__host-element-container {
+  position: absolute;
+  z-index: 1;
+  transform-origin: top left;
+  pointer-events: none;
+
+  .excalidraw__host-element-container__inner {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+}

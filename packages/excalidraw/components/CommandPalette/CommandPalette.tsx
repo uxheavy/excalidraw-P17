@@ -220,6 +220,10 @@ function CommandPaletteInner({
 
   const [libraryItemsData] = useAtom(libraryItemsAtom);
   const libraryCommands: CommandPaletteItem[] = useMemo(() => {
+    if (appProps.UIOptions.library === false) {
+      return [];
+    }
+
     return (
       libraryItemsData.libraryItems
         ?.filter(
@@ -244,7 +248,7 @@ function CommandPaletteInner({
           },
         })) || []
     );
-  }, [app, libraryItemsData.libraryItems]);
+  }, [app, appProps.UIOptions.library, libraryItemsData.libraryItems]);
 
   useEffect(() => {
     // these props change often and we don't want them to re-run the effect
@@ -420,26 +424,30 @@ function CommandPaletteInner({
 
       const additionalCommands: CommandPaletteItem[] = [
         actionToCommand(actionToggleTheme, DEFAULT_CATEGORIES.app),
-        {
-          label: t("toolBar.library"),
-          category: DEFAULT_CATEGORIES.app,
-          icon: LibraryIcon,
-          viewMode: false,
-          perform: () => {
-            if (uiAppState.openSidebar) {
-              setAppState({
-                openSidebar: null,
-              });
-            } else {
-              setAppState({
-                openSidebar: {
-                  name: DEFAULT_SIDEBAR.name,
-                  tab: DEFAULT_SIDEBAR.defaultTab,
+        ...(appProps.UIOptions.library === false
+          ? []
+          : [
+              {
+                label: t("toolBar.library"),
+                category: DEFAULT_CATEGORIES.app,
+                icon: LibraryIcon,
+                viewMode: false,
+                perform: () => {
+                  if (uiAppState.openSidebar) {
+                    setAppState({
+                      openSidebar: null,
+                    });
+                  } else {
+                    setAppState({
+                      openSidebar: {
+                        name: DEFAULT_SIDEBAR.name,
+                        tab: DEFAULT_SIDEBAR.defaultTab,
+                      },
+                    });
+                  }
                 },
-              });
-            }
-          },
-        },
+              },
+            ]),
         {
           label: t("search.title"),
           category: DEFAULT_CATEGORIES.app,
