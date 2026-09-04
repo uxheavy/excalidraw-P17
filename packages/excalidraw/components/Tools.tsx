@@ -205,34 +205,25 @@ export const getToolShortcut = (
 export const findShapeByKey = (
   key: string,
   app: AppClassProperties,
-  shiftKeyOrEvent:
-    | boolean
-    | Pick<
-        KeyboardEvent,
-        "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
-      > = false,
+  event: Pick<KeyboardEvent, "shiftKey" | "altKey" | "ctrlKey" | "metaKey"> = {
+    shiftKey: false,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+  },
 ) => {
-  const event =
-    typeof shiftKeyOrEvent === "boolean"
-      ? {
-          key,
-          shiftKey: shiftKeyOrEvent,
-          altKey: false,
-          ctrlKey: false,
-          metaKey: false,
-        }
-      : {
-          key,
-          shiftKey: shiftKeyOrEvent.shiftKey,
-          altKey: shiftKeyOrEvent.altKey,
-          ctrlKey: shiftKeyOrEvent.ctrlKey,
-          metaKey: shiftKeyOrEvent.metaKey,
-        };
+  const shortcutEvent = {
+    key,
+    shiftKey: event.shiftKey,
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+  };
 
   for (const type of Object.keys(TOOLS) as ToolbarToolType[]) {
     if (
       getToolShortcuts(type, app.props?.toolShortcutOverrides).some(
-        (shortcut) => shortcutMatches(shortcut, event),
+        (shortcut) => shortcutMatches(shortcut, shortcutEvent),
       )
     ) {
       // the selection shortcut activates whichever selection tool the user

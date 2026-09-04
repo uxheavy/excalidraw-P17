@@ -116,17 +116,43 @@ describe("findShapeByKey()", () => {
   it("matches shift-bound tools only when shift is held", () => {
     const app = appWithPreferredTool("selection");
 
-    expect(findShapeByKey("X", app, true)).toBe("autoshape");
-    expect(findShapeByKey("x", app, true)).toBe("autoshape");
+    expect(
+      findShapeByKey(
+        "X",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
+    expect(
+      findShapeByKey(
+        "x",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
     // Pressing "X" while CapsLock is active (no shift) stays freedraw
-    expect(findShapeByKey("X", app, false)).toBe("freedraw");
+    expect(findShapeByKey("X", app, new KeyboardEvent("keydown"))).toBe(
+      "freedraw",
+    );
   });
 
   it("does not match plain-bound tools when shift is held", () => {
     const app = appWithPreferredTool("selection");
 
-    expect(findShapeByKey("R", app, true)).toBeNull();
-    expect(findShapeByKey("V", app, true)).toBeNull();
+    expect(
+      findShapeByKey(
+        "R",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findShapeByKey(
+        "V",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBeNull();
   });
 
   it("uses host tool shortcut overrides without changing the scene", () => {
@@ -145,7 +171,13 @@ describe("findShapeByKey()", () => {
     expect(findShapeByKey("d", app)).toBe("freedraw");
     expect(findShapeByKey("b", app)).toBe("freedraw");
     expect(findShapeByKey("3", app)).toBe("diamond");
-    expect(findShapeByKey("x", app, true)).toBe("autoshape");
+    expect(
+      findShapeByKey(
+        "x",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
     expect(findShapeByKey("b", app)).not.toBe("bucketfill");
   });
 
