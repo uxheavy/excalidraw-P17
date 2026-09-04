@@ -7,9 +7,9 @@ const { spawn, spawnSync } = require("child_process");
 const REPOSITORY_ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIRECTORY = path.join(REPOSITORY_ROOT, "packages");
 const PUBLIC_BASE_COMMIT = "abeeaeba217ab3b5193b78c8d8d63c373b518ced";
-const FORK_SOURCE_COMMIT = "583b3c3c69320b4bf4d78d1de947ff8f44119d8a";
+const FORK_SOURCE_COMMIT = "fc7ed6055d53ec834d40f0adddf7266136ebd4d0";
 const PUBLIC_PACKAGE_VERSION = "0.18.0-abeeaeb";
-const FORK_PACKAGE_VERSION = "0.18.0-583b3c3c";
+const FORK_PACKAGE_VERSION = "0.18.1-fc7ed605";
 const RELEASE_TAG = `packages-v${FORK_PACKAGE_VERSION}`;
 const RELEASE_ASSET_BASE_URL = `https://github.com/uxheavy/excalidraw-P17/releases/download/${RELEASE_TAG}`;
 const CHANGED_PACKAGES = ["common", "excalidraw"];
@@ -267,6 +267,18 @@ createRoot(document.getElementById("root")!).render(
     onPaste={onPaste}
     shouldLoadEmbeddable={shouldLoadEmbeddable}
     onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+    hostToolbarItems={[
+      {
+        id: "consumer-command",
+        label: "Consumer command",
+        shortcuts: [{ key: "w" }],
+        onSelect: () => undefined,
+      },
+    ]}
+    toolShortcutOverrides={{ freedraw: [{ key: "d" }] }}
+    renderHostElement={(element) =>
+      element.type === "rectangle" ? <span>Host content</span> : null
+    }
   />,
 );
 `,
