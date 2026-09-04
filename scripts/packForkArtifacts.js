@@ -279,6 +279,10 @@ createRoot(document.getElementById("root")!).render(
     renderHostElement={(element) =>
       element.type === "rectangle" ? <span>Host content</span> : null
     }
+    renderCollaboratorAvatar={({ name, size }) => (
+      <span>{name}:{size}</span>
+    )}
+    UIOptions={{ library: false }}
   />,
 );
 `,
