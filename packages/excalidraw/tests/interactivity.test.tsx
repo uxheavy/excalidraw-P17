@@ -849,6 +849,65 @@ describe("host UI", () => {
     ).toHaveAttribute("aria-keyshortcuts", "Alt+T");
   });
 
+  it("keeps host menus inaccessible when disabled and exposes checked children", async () => {
+    const onSelect = vi.fn();
+    const getItems = (disabled = false) => [
+      {
+        id: "host-menu",
+        type: "menu" as const,
+        label: "Host menu",
+        disabled,
+        items: [
+          {
+            id: "host-menu-item",
+            label: "Host menu item",
+            checked: true,
+            onSelect,
+          },
+        ],
+      },
+    ];
+
+    const { container } = await render(
+      <Excalidraw hostToolbarItems={getItems()} />,
+    );
+
+    fireEvent.click(container.querySelector("[aria-label='Host menu']")!);
+    await waitFor(() =>
+      expect(
+        document.querySelector("[aria-label='Host menu item']"),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+
+    GlobalTestState.renderResult.rerender(
+      <Excalidraw hostToolbarItems={getItems(true)} />,
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector("[aria-label='Host menu item']"),
+      ).toBeNull(),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("keeps Mermaid available when AI tools are disabled", async () => {
+    const { container } = await render(<Excalidraw aiEnabled={false} />);
+
+    fireEvent.click(
+      container.querySelector(".App-toolbar__extra-tools-trigger")!,
+    );
+    await waitFor(() =>
+      expect(
+        [
+          ...document.querySelectorAll("[data-testid='toolbar-embeddable']"),
+        ].some((element) => element.textContent?.includes("Mermaid")),
+      ).toBe(true),
+    );
+    expect(
+      document.querySelector("[data-testid='toolbar-magicframe']"),
+    ).toBeNull();
+  });
+
   it("dispatches host shortcuts only from the guarded editor surface", async () => {
     const onSelect = vi.fn();
     const { container } = await render(
@@ -1713,6 +1772,22 @@ describe("renderHostElement", () => {
     expect(
       queryContainer("[data-testid='flipped-host-content']")?.parentElement,
     ).toHaveStyle("transform: rotate(0rad) scale(-1, 1)");
+
+    act(() => {
+      API.setAppState({
+        openDialog: {
+          name: "elementLinkSelector",
+          sourceElementId: firstHostElement.id,
+        },
+        selectedElementIds: {},
+        hoveredElementIds: {},
+      });
+    });
+    await waitFor(() =>
+      expect(queryContainer(".excalidraw__host-element-container")).toHaveStyle(
+        "opacity: 0.3",
+      ),
+    );
   });
 
   it("leaves URL embeddable rendering and activation unchanged", async () => {

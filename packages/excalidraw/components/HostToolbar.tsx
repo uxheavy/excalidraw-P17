@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   getAriaShortcutLabels,
@@ -119,6 +119,12 @@ export const getHostToolbarShortcutCollisions = (
 const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    if (item.disabled) {
+      setOpen(false);
+    }
+  }, [item.disabled]);
+
   return (
     <DropdownMenu open={open}>
       <DropdownMenu.Trigger
@@ -141,7 +147,8 @@ const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
             shortcut={child.shortcuts?.map(getShortcutLabel).join(" ")}
             aria-label={child.label}
             selected={child.checked}
-            disabled={child.disabled}
+            aria-pressed={child.checked}
+            disabled={item.disabled || child.disabled}
             onSelect={() => child.onSelect()}
           >
             {child.label}

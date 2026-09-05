@@ -392,5 +392,26 @@ describe("Sidebar", () => {
         },
       );
     });
+
+    it("keeps a host library tab when native library is disabled", async () => {
+      const { container } = await render(
+        <Excalidraw UIOptions={{ library: false }}>
+          <Sidebar name="custom" docked>
+            <Sidebar.Tabs>
+              <Sidebar.Tab tab="library">Host library</Sidebar.Tab>
+            </Sidebar.Tabs>
+          </Sidebar>
+        </Excalidraw>,
+      );
+
+      expect(await toggleSidebar({ name: "custom", tab: "library" })).toBe(
+        true,
+      );
+      await waitFor(() =>
+        expect(
+          container.querySelector("[role=tabpanel][data-testid=library]"),
+        ).not.toBeNull(),
+      );
+    });
   });
 });

@@ -85,11 +85,17 @@ export const DefaultSidebar = Object.assign(
       useEffect(() => {
         if (
           !libraryEnabled &&
+          appState.openSidebar?.name === DEFAULT_SIDEBAR.name &&
           appState.openSidebar?.tab === LIBRARY_SIDEBAR_TAB
         ) {
           setAppState({ openSidebar: null });
         }
-      }, [appState.openSidebar?.tab, libraryEnabled, setAppState]);
+      }, [
+        appState.openSidebar?.name,
+        appState.openSidebar?.tab,
+        libraryEnabled,
+        setAppState,
+      ]);
 
       const { DefaultSidebarTabTriggersTunnel } = useTunnels();
 

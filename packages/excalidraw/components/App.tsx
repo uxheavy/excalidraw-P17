@@ -2170,6 +2170,11 @@ class App extends React.Component<AppProps, AppState> {
                     getContainingFrame(element, elementsMap),
                     this.elementsPendingErasure,
                     null,
+                    this.state.openDialog?.name === "elementLinkSelector" &&
+                      !this.state.selectedElementIds[element.id] &&
+                      !this.state.hoveredElementIds[element.id]
+                      ? DEFAULT_REDUCED_GLOBAL_ALPHA
+                      : 1,
                   ),
                 }}
               >

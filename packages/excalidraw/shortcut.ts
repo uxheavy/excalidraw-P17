@@ -46,9 +46,11 @@ export const getShortcutLabel = (shortcut: EditorShortcut) => {
 };
 
 export const getAriaShortcutLabels = (shortcut: EditorShortcut) => {
+  const key =
+    shortcut.key.length === 1 ? shortcut.key.toUpperCase() : shortcut.key;
   const suffix = `${shortcut.altKey ? "Alt+" : ""}${
     shortcut.shiftKey ? "Shift+" : ""
-  }${shortcut.key.toUpperCase()}`;
+  }${key}`;
   return shortcut.ctrlOrCmd
     ? [`Control+${suffix}`, `Meta+${suffix}`]
     : [suffix];

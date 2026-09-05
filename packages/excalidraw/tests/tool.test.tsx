@@ -215,6 +215,12 @@ describe("findShapeByKey()", () => {
     expect(
       getToolAriaShortcut("rectangle", app.props.toolShortcutOverrides),
     ).toBe("Control+Alt+R Meta+Alt+R");
+
+    expect(
+      getToolAriaShortcut("rectangle", {
+        rectangle: [{ key: "ArrowLeft", altKey: true }],
+      }),
+    ).toBe("Alt+ArrowLeft");
   });
 
   it("resolves host shortcuts while ignoring disabled commands", () => {
