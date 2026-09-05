@@ -128,20 +128,16 @@ const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
   }, [item.disabled]);
 
   return (
-    <DropdownMenu open={open}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenu.Trigger
         aria-label={item.label}
         title={item.label}
         disabled={item.disabled}
         className={clsx({ "App-toolbar__extra-tools-trigger--selected": open })}
-        onToggle={() => setOpen((value) => !value)}
       >
         {item.icon ?? item.label}
       </DropdownMenu.Trigger>
-      <DropdownMenu.Content
-        onClickOutside={() => setOpen(false)}
-        onSelect={() => setOpen(false)}
-      >
+      <DropdownMenu.Content>
         {item.items.map((child) => (
           <DropdownMenu.Item
             key={child.id}

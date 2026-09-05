@@ -918,7 +918,13 @@ describe("host UI", () => {
       <Excalidraw hostToolbarItems={getItems()} />,
     );
 
-    fireEvent.click(container.querySelector("[aria-label='Host menu']")!);
+    fireEvent.pointerDown(
+      container.querySelector("[aria-label='Host menu']")!,
+      {
+        button: 0,
+        ctrlKey: false,
+      },
+    );
     await waitFor(() =>
       expect(
         document.querySelector("[aria-label='Host menu item']"),
@@ -937,6 +943,88 @@ describe("host UI", () => {
       ).toBeNull(),
     );
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("closes host menus when switching menus or interacting with the canvas", async () => {
+    const getItems = () => [
+      {
+        id: "work-items",
+        type: "menu" as const,
+        label: "Work items",
+        items: [
+          {
+            id: "work-item",
+            label: "Work item",
+            checked: true,
+            onSelect: () => {},
+          },
+        ],
+      },
+      {
+        id: "add",
+        type: "menu" as const,
+        label: "Add",
+        items: [
+          {
+            id: "add-item",
+            label: "Add item",
+            onSelect: () => {},
+          },
+        ],
+      },
+    ];
+
+    const { container } = await render(
+      <Excalidraw hostToolbarItems={getItems()} />,
+    );
+    const workItemsTrigger = container.querySelector(
+      "[aria-label='Work items']",
+    )!;
+    const addTrigger = container.querySelector("[aria-label='Add']")!;
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    expect(document.querySelector("[aria-label='Work item']")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.pointerDown(addTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() => {
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull();
+      expect(document.querySelector("[aria-label='Add item']")).not.toBeNull();
+    });
+
+    fireEvent.pointerDown(GlobalTestState.interactiveCanvas, { button: 0 });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Add item']")).toBeNull(),
+    );
+    fireEvent.pointerUp(GlobalTestState.interactiveCanvas, { button: 0 });
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    expect(document.querySelector("[aria-label='Work item']")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull(),
+    );
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull(),
+    );
   });
 
   it("keeps Mermaid available when AI tools are disabled", async () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import clsx from "clsx";
 
-import { KEYS, capitalizeString } from "@excalidraw/common";
+import { capitalizeString } from "@excalidraw/common";
 
 import { t } from "../i18n";
 
@@ -264,7 +264,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             <DropdownMenu.Item
               onSelect={() => app.setActiveTool({ type: "text" })}
               icon={TextIcon}
-              shortcut={KEYS.T.toLocaleUpperCase()}
+              shortcut={
+                getToolShortcut("text", app.props.toolShortcutOverrides) ??
+                undefined
+              }
               data-testid="toolbar-text"
               selected={activeTool.type === "text"}
               disabled={isToolButtonDisabled(app, "text")}
@@ -277,6 +280,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             <DropdownMenu.Item
               onSelect={() => app.setActiveTool({ type: "image" })}
               icon={ImageIcon}
+              shortcut={
+                getToolShortcut("image", app.props.toolShortcutOverrides) ??
+                undefined
+              }
               data-testid="toolbar-image"
               selected={activeTool.type === "image"}
               disabled={isToolButtonDisabled(app, "image")}
@@ -302,6 +309,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
           <DropdownMenu.Item
             onSelect={() => app.setActiveTool({ type: "embeddable" })}
             icon={EmbedIcon}
+            shortcut={
+              getToolShortcut("embeddable", app.props.toolShortcutOverrides) ??
+              undefined
+            }
             data-testid="toolbar-embeddable"
             selected={embeddableToolSelected}
             disabled={isToolButtonDisabled(app, "embeddable")}
@@ -326,7 +337,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             icon={laserPointerToolIcon}
             data-testid="toolbar-laser"
             selected={laserToolSelected}
-            shortcut={KEYS.K.toLocaleUpperCase()}
+            shortcut={
+              getToolShortcut("laser", app.props.toolShortcutOverrides) ??
+              undefined
+            }
             disabled={isToolButtonDisabled(app, "laser")}
           >
             {t("toolBar.laser")}
