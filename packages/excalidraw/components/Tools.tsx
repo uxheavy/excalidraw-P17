@@ -7,7 +7,11 @@ import type { PointerType } from "@excalidraw/element/types";
 
 import { trackEvent } from "../analytics";
 import { t } from "../i18n";
-import { getShortcutKey } from "../shortcut";
+import {
+  getAriaShortcutLabels,
+  getShortcutLabel,
+  shortcutMatches,
+} from "../shortcut";
 
 import { IconButton } from "./IconButton";
 import { ToolPopover } from "./ToolPopover";
@@ -34,6 +38,8 @@ import {
 import type {
   AppClassProperties,
   AppState,
+  EditorShortcut,
+  ToolShortcutOverrides,
   ToolType,
   UIAppState,
 } from "../types";
@@ -164,48 +170,70 @@ export const TOGGLE_TOOLS: readonly (ToolType | "custom")[] = (
   Object.keys(TOOLS) as ToolbarToolType[]
 ).filter((type) => TOOLS[type].toggle);
 
-export const getToolLetter = (type: ToolbarToolType) => {
-  const { letterKey, shiftKey } = TOOLS[type];
-  if (!letterKey) {
-    return letterKey;
+/** human-readable shortcut hint, e.g. "R or 2", used in tooltips & aria */
+export const getToolShortcuts = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+): readonly EditorShortcut[] => {
+  if (overrides && Object.prototype.hasOwnProperty.call(overrides, type)) {
+    return overrides[type] ?? [];
   }
-  const letter = capitalizeString(
-    typeof letterKey === "string" ? letterKey : letterKey[0],
-  );
-  return shiftKey ? getShortcutKey(`Shift+${letter}`) : letter;
+  const { letterKey, numericKey, shiftKey } = TOOLS[type];
+  const letters = letterKey
+    ? (typeof letterKey === "string" ? [letterKey] : letterKey).map((key) => ({
+        key,
+        shiftKey,
+      }))
+    : [];
+  return numericKey ? [...letters, { key: numericKey }] : letters;
 };
 
-/** human-readable shortcut hint, e.g. "R or 2", used in tooltips & aria */
-export const getToolShortcut = (type: ToolbarToolType) => {
-  const letter = getToolLetter(type);
-  const { numericKey } = TOOLS[type];
-  return letter && numericKey != null
-    ? `${letter} ${t("helpDialog.or")} ${numericKey}`
-    : `${letter || numericKey}`;
+export const getToolShortcutKeys = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+) => getToolShortcuts(type, overrides).map(getShortcutLabel);
+
+export const getToolAriaShortcut = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+) => getToolShortcuts(type, overrides).flatMap(getAriaShortcutLabels).join(" ");
+
+export const getToolLetter = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+) => getToolShortcutKeys(type, overrides)[0] ?? null;
+
+export const getToolShortcut = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+) => {
+  const shortcuts = getToolShortcutKeys(type, overrides);
+  return shortcuts.length ? shortcuts.join(` ${t("helpDialog.or")} `) : null;
 };
 
 export const findShapeByKey = (
   key: string,
   app: AppClassProperties,
-  shiftKey: boolean = false,
+  event: Pick<KeyboardEvent, "shiftKey" | "altKey" | "ctrlKey" | "metaKey"> = {
+    shiftKey: false,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+  },
 ) => {
-  // CapsLock-insensitive: the caller excludes every modifier but shift, and
-  // shift is matched explicitly below, so a capital letter on its own means
-  // CapsLock
-  const lowerKey = key.toLowerCase();
+  const shortcutEvent = {
+    key,
+    shiftKey: event.shiftKey,
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+  };
 
   for (const type of Object.keys(TOOLS) as ToolbarToolType[]) {
-    const { letterKey, numericKey, shiftKey: requiresShift } = TOOLS[type];
-    // shift-bound tools require shift; plain-bound ones require its absence
-    if (shiftKey !== Boolean(requiresShift)) {
-      continue;
-    }
     if (
-      (numericKey != null && key === numericKey) ||
-      (letterKey &&
-        (typeof letterKey === "string"
-          ? letterKey === lowerKey
-          : letterKey.includes(lowerKey)))
+      getToolShortcuts(type, app.props?.toolShortcutOverrides).some(
+        (shortcut) => shortcutMatches(shortcut, shortcutEvent),
+      )
     ) {
       // the selection shortcut activates whichever selection tool the user
       // prefers (selection or lasso)
@@ -273,7 +301,12 @@ const createToolButton = (
     hideShortcut,
   }: ToolButtonComponentProps) => {
     const label = capitalizeString(t(`toolBar.${type}`));
-    const shortcut = hideShortcut ? null : getToolShortcut(shortcutType);
+    const shortcut = hideShortcut
+      ? null
+      : getToolShortcut(shortcutType, app.props.toolShortcutOverrides);
+    const ariaShortcut = hideShortcut
+      ? null
+      : getToolAriaShortcut(shortcutType, app.props.toolShortcutOverrides);
 
     return (
       <IconButton
@@ -286,10 +319,10 @@ const createToolButton = (
         keyBindingLabel={
           hideKeyBinding || hideShortcut
             ? undefined
-            : TOOLS[shortcutType].numericKey || getToolLetter(shortcutType)
+            : getToolLetter(shortcutType, app.props.toolShortcutOverrides)
         }
         aria-label={label}
-        aria-keyshortcuts={shortcut ?? undefined}
+        aria-keyshortcuts={ariaShortcut || undefined}
         data-testid={`toolbar-${type}`}
         onSelect={({ pointerType }) => {
           if (!app.state.penDetected && pointerType === "pen") {

@@ -93,6 +93,12 @@ export type Collaborator = Readonly<{
   isMuted?: boolean;
 }>;
 
+export type CollaboratorAvatarProps = Readonly<{
+  name: string;
+  src?: string;
+  size: number;
+}>;
+
 export type CollaboratorPointer = {
   x: number;
   y: number;
@@ -165,6 +171,44 @@ export type ToolType =
   | "bucketfill";
 
 export type ElementOrToolType = ExcalidrawElementType | ToolType | "custom";
+
+/** A keyboard binding supplied by a host for an editor command or tool. */
+export type EditorShortcut = Readonly<{
+  key: string;
+  shiftKey?: boolean;
+  ctrlOrCmd?: boolean;
+  altKey?: boolean;
+}>;
+
+/** Native tools that are backed by the shared `TOOLS` shortcut registry. */
+export type ExcalidrawToolId = Exclude<ToolType, "magicframe">;
+
+export type HostToolbarButton = Readonly<{
+  id: string;
+  label: string;
+  icon?: JSX.Element;
+  shortcuts?: readonly EditorShortcut[];
+  disabled?: boolean;
+  checked?: boolean;
+  onSelect: () => void;
+  /** Cancels this command when it is active and Escape is pressed on canvas. */
+  onCancel?: () => void;
+}>;
+
+export type HostToolbarMenuDescriptor = Readonly<{
+  id: string;
+  type: "menu";
+  label: string;
+  icon?: JSX.Element;
+  disabled?: boolean;
+  items: readonly HostToolbarButton[];
+}>;
+
+export type HostToolbarItem = HostToolbarButton | HostToolbarMenuDescriptor;
+
+export type ToolShortcutOverrides = Partial<
+  Record<ExcalidrawToolId, readonly EditorShortcut[]>
+>;
 
 export type ActiveTool =
   | {
@@ -860,6 +904,21 @@ export interface ExcalidrawProps {
     isMobile: boolean,
     appState: UIAppState,
   ) => JSX.Element | null;
+  /**
+   * Renders collaborator avatars in the native user list. When omitted,
+   * Excalidraw renders its built-in color and initials avatar.
+   */
+  renderCollaboratorAvatar?: (
+    props: CollaboratorAvatarProps,
+  ) => JSX.Element | null;
+  /**
+   * Commands rendered as native Excalidraw toolbar controls. Host callbacks
+   * remain outside scene state, while Excalidraw owns focus, shortcuts, and
+   * accessibility semantics for the controls.
+   */
+  hostToolbarItems?: readonly HostToolbarItem[];
+  /** Replace a tool's built-in shortcuts for this editor instance. */
+  toolShortcutOverrides?: ToolShortcutOverrides;
   langCode?: Language["code"];
   viewModeEnabled?: boolean;
   /**
@@ -951,6 +1010,19 @@ export interface ExcalidrawProps {
       nativeEvent: MouseEvent | React.PointerEvent<HTMLCanvasElement>;
     }>,
   ) => void;
+  /**
+   * Called when a native element is activated by pointer or keyboard input.
+   * Return `true` to consume the activation and prevent Excalidraw's default
+   * native activation behavior. Returning `false`, or omitting this callback,
+   * preserves the default behavior.
+   */
+  onElementActivate?: (element: NonDeletedExcalidrawElement) => boolean;
+  /**
+   * Controls whether a native element may enter text editing. When omitted,
+   * all elements pass this host policy and Excalidraw applies its usual
+   * structural text-editing checks.
+   */
+  isElementTextEditable?: (element: NonDeletedExcalidrawElement) => boolean;
   onPointerDown?: (
     activeTool: AppState["activeTool"],
     pointerDownState: PointerDownState,
@@ -984,6 +1056,20 @@ export interface ExcalidrawProps {
   onEmbeddableLoadRequest?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
   ) => void;
+  /**
+   * Renders host-owned content for visible non-URL native elements. Returning
+   * content registers a host surface above the canvas and below native embeds;
+   * hit testing uses the same host-before-embed tier order. Returning null
+   * leaves the native element unchanged. Host surfaces follow the native
+   * element transform and opacity, including image flips, and preserve their
+   * scene order. Elements with links and iframe-like types are not passed to
+   * this callback, so rendered content cannot enter Excalidraw's URL or iframe
+   * interaction paths.
+   */
+  renderHostElement?: (
+    element: NonDeletedExcalidrawElement,
+    appState: AppState,
+  ) => JSX.Element | null;
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,
@@ -1085,6 +1171,8 @@ export type CanvasActions = Partial<{
 export type UIOptions = Partial<{
   dockedSidebarBreakpoint: number;
   canvasActions: CanvasActions;
+  library: boolean;
+  socialLinks: boolean;
   tools: {
     image: boolean;
   };
@@ -1147,6 +1235,7 @@ export type AppClassProperties = {
   pasteFromClipboard: App["pasteFromClipboard"];
   id: App["id"];
   onInsertElements: App["onInsertElements"];
+  isElementTextEditable: App["isElementTextEditable"];
   onExportImage: App["onExportImage"];
   viewport: App["viewport"];
   addFiles: App["addFiles"];

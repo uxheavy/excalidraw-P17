@@ -78,3 +78,14 @@ Allows you to replace the renderer for embeddable elements (which renders `<ifra
 | --- | --- | --- |
 | `element` | `NonDeleted<ExcalidrawEmbeddableElement>` | The embeddable element to be rendered. |
 | `appState` | `AppState` | The current state of the UI. |
+
+## renderHostElement
+
+<pre>
+  (element: NonDeleted&lt;ExcalidrawElement&gt;, appState:
+  <a href="https://github.com/excalidraw/excalidraw/blob/master/packages/excalidraw/types.ts#L95">
+    AppState
+  </a>) =&gt; JSX.Element | null
+</pre>
+
+Renders host-owned content over visible non-URL native elements. Returning content registers a host surface above the canvas and below native embeds. Host surfaces follow the native element transform and opacity, including image flips, and preserve their scene order; hit testing uses the same host-before-embed tier order. Return `null` for elements that the host does not own. Elements with links and iframe-like types are never passed to this callback, so host content stays outside URL and iframe interaction semantics while the native element remains responsible for selection, bindings, history, and clipboard behavior.

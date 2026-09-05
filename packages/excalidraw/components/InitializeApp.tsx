@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import type { Theme } from "@excalidraw/element/types";
 
-import { defaultLang, languages, setLanguage } from "../i18n";
+import { resolveLanguage, setLanguage } from "../i18n";
 
 import { LoadingMessage } from "./LoadingMessage";
 
@@ -18,14 +18,23 @@ export const InitializeApp = (props: Props) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!loading) {
+      return;
+    }
+
+    let isCurrent = true;
     const updateLang = async () => {
-      await setLanguage(currentLang);
-      setLoading(false);
+      await setLanguage(resolveLanguage(props.langCode));
+      if (isCurrent) {
+        setLoading(false);
+      }
     };
-    const currentLang =
-      languages.find((lang) => lang.code === props.langCode) || defaultLang;
     updateLang();
-  }, [props.langCode]);
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [loading, props.langCode]);
 
   return loading ? <LoadingMessage theme={props.theme} /> : props.children;
 };

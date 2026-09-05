@@ -89,6 +89,7 @@ interface LayerUIProps {
   langCode: Language["code"];
   renderTopLeftUI?: ExcalidrawProps["renderTopLeftUI"];
   renderTopRightUI?: ExcalidrawProps["renderTopRightUI"];
+  hostToolbarItems?: ExcalidrawProps["hostToolbarItems"];
   renderCustomStats?: ExcalidrawProps["renderCustomStats"];
   UIOptions: AppProps["UIOptions"];
   onExportImage: AppClassProperties["onExportImage"];
@@ -119,11 +120,15 @@ const DefaultMainMenu: React.FC<{
       <MainMenu.DefaultItems.SearchMenu />
       <MainMenu.DefaultItems.Help />
       <MainMenu.DefaultItems.ClearCanvas />
-      <MainMenu.Separator />
-      <MainMenu.Group title="Excalidraw links">
-        <MainMenu.DefaultItems.Socials />
-      </MainMenu.Group>
-      <MainMenu.Separator />
+      {UIOptions.socialLinks !== false && (
+        <>
+          <MainMenu.Separator />
+          <MainMenu.Group title="Excalidraw links">
+            <MainMenu.DefaultItems.Socials />
+          </MainMenu.Group>
+          <MainMenu.Separator />
+        </>
+      )}
       <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
       <MainMenu.DefaultItems.ChangeCanvasBackground />
     </MainMenu>
@@ -151,6 +156,7 @@ const LayerUI = ({
   showExitZenModeBtn,
   renderTopLeftUI,
   renderTopRightUI,
+  hostToolbarItems,
   renderCustomStats,
   UIOptions,
   onExportImage,
@@ -365,6 +371,7 @@ const LayerUI = ({
                           onPenModeToggle={onPenModeToggle}
                           onLockToggle={onLockToggle}
                           heading={heading}
+                          hostToolbarItems={hostToolbarItems}
                         />
                         {isCollaborating && (
                           <Island
@@ -559,6 +566,8 @@ const LayerUI = ({
         )}
       {appState.openDialog?.name === "help" && (
         <HelpDialog
+          hostToolbarItems={appProps.hostToolbarItems}
+          toolShortcutOverrides={appProps.toolShortcutOverrides}
           onClose={() => {
             setAppState({ openDialog: null });
           }}

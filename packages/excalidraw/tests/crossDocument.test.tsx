@@ -59,6 +59,7 @@ describe("cross-document rendering", () => {
       const renderResult = renderReact(
         <Excalidraw
           ownerDocument={ownerDocument}
+          langCode="fa-IR"
           handleKeyboardGlobally={true}
           onExcalidrawAPI={(nextApi) => {
             api = nextApi;
@@ -74,6 +75,12 @@ describe("cross-document rendering", () => {
       );
       expect(api).not.toBeNull();
       await waitFor(() => expect(api!.getAppState().isLoading).toBe(false));
+      expect(ownerDocument.documentElement.lang).toBe("fa-IR");
+      expect(ownerDocument.documentElement.dir).toBe("rtl");
+      expect(container.querySelector(".excalidraw")).toHaveAttribute(
+        "dir",
+        "rtl",
+      );
       expect(
         addDocumentEventListener.mock.calls.some(
           ([eventName]) => eventName === "pointermove",
@@ -139,6 +146,9 @@ describe("cross-document rendering", () => {
       expect(ownerDocument.querySelector(".Modal")).toHaveClass(
         "animations-disabled",
       );
+      expect(
+        ownerDocument.querySelector(".excalidraw-modal-container"),
+      ).toHaveAttribute("dir", "rtl");
     } finally {
       unmount?.();
       iframe.remove();

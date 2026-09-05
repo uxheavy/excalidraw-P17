@@ -40,7 +40,6 @@ import { CaptureUpdateAction } from "@excalidraw/element";
 import type {
   ExcalidrawElement,
   ExcalidrawLinearElement,
-  ExcalidrawTextContainer,
   ExcalidrawTextElement,
 } from "@excalidraw/element/types";
 
@@ -51,6 +50,25 @@ import type { Radians } from "@excalidraw/math";
 import { register } from "./register";
 
 import type { AppState } from "../types";
+
+const getTextBindingElements = (elements: readonly ExcalidrawElement[]) => {
+  if (elements.length !== 2) {
+    return null;
+  }
+
+  const textElement = isTextElement(elements[0])
+    ? elements[0]
+    : isTextElement(elements[1])
+    ? elements[1]
+    : null;
+  const container = isTextBindableContainer(elements[0])
+    ? elements[0]
+    : isTextBindableContainer(elements[1])
+    ? elements[1]
+    : null;
+
+  return textElement && container ? { textElement, container } : null;
+};
 
 export const actionUnbindText = register({
   name: "unbindText",
@@ -113,47 +131,30 @@ export const actionBindText = register({
   trackEvent: { category: "element" },
   predicate: (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements(appState);
+    const bindingElements = getTextBindingElements(selectedElements);
 
-    if (selectedElements.length === 2) {
-      const textElement =
-        isTextElement(selectedElements[0]) ||
-        isTextElement(selectedElements[1]);
-
-      let bindingContainer;
-      if (isTextBindableContainer(selectedElements[0])) {
-        bindingContainer = selectedElements[0];
-      } else if (isTextBindableContainer(selectedElements[1])) {
-        bindingContainer = selectedElements[1];
-      }
-      if (
-        textElement &&
-        bindingContainer &&
-        getBoundTextElement(
-          bindingContainer,
-          app.scene.getNonDeletedElementsMap(),
-        ) === null
-      ) {
-        return true;
-      }
-    }
-    return false;
+    return (
+      !!bindingElements &&
+      app.isElementTextEditable(bindingElements.textElement) &&
+      app.isElementTextEditable(bindingElements.container) &&
+      getBoundTextElement(
+        bindingElements.container,
+        app.scene.getNonDeletedElementsMap(),
+      ) === null
+    );
   },
   perform: (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements(appState);
-
-    let textElement: ExcalidrawTextElement;
-    let container: ExcalidrawTextContainer;
+    const bindingElements = getTextBindingElements(selectedElements);
 
     if (
-      isTextElement(selectedElements[0]) &&
-      isTextBindableContainer(selectedElements[1])
+      !bindingElements ||
+      !app.isElementTextEditable(bindingElements.textElement) ||
+      !app.isElementTextEditable(bindingElements.container)
     ) {
-      textElement = selectedElements[0];
-      container = selectedElements[1];
-    } else {
-      textElement = selectedElements[1] as ExcalidrawTextElement;
-      container = selectedElements[0] as ExcalidrawTextContainer;
+      return false;
     }
+    const { textElement, container } = bindingElements;
     app.scene.mutateElement(textElement, {
       containerId: container.id,
       verticalAlign: VERTICAL_ALIGN.MIDDLE,
@@ -228,7 +229,10 @@ export const actionWrapTextInContainer = register({
   predicate: (elements, appState, _, app) => {
     const selectedElements = app.scene.getSelectedElements(appState);
     const someTextElements = selectedElements.some(
-      (el) => isTextElement(el) && !isBoundToContainer(el),
+      (el) =>
+        isTextElement(el) &&
+        !isBoundToContainer(el) &&
+        app.isElementTextEditable(el),
     );
     return selectedElements.length > 0 && someTextElements;
   },
@@ -238,7 +242,11 @@ export const actionWrapTextInContainer = register({
     const containerIds: Mutable<AppState["selectedElementIds"]> = {};
 
     for (const textElement of selectedElements) {
-      if (isTextElement(textElement) && !isBoundToContainer(textElement)) {
+      if (
+        isTextElement(textElement) &&
+        !isBoundToContainer(textElement) &&
+        app.isElementTextEditable(textElement)
+      ) {
         const container = newElement({
           type: "rectangle",
           backgroundColor: appState.currentItemBackgroundColor,

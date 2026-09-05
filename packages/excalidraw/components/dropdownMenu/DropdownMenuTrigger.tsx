@@ -13,7 +13,7 @@ const MenuTrigger = ({
 }: {
   className?: string;
   children: React.ReactNode;
-  onToggle: () => void;
+  onToggle?: () => void;
   title?: string;
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onSelect">) => {
   const editorInterface = useEditorInterface();

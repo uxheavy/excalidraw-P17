@@ -25,7 +25,7 @@ import { actionToggleViewMode } from "../actions/actionToggleViewMode";
 
 import "./Actions.scss";
 
-import { useExcalidrawContainer } from "./App";
+import { useApp, useExcalidrawContainer } from "./App";
 import Stack from "./Stack";
 import { Tooltip } from "./Tooltip";
 import { PropertiesPopover } from "./PropertiesPopover";
@@ -89,7 +89,7 @@ const AlignFieldset = ({
   renderAction: ActionManager["renderAction"];
   showDistribute: boolean;
 }) => {
-  const isRTL = document.documentElement.getAttribute("dir") === "rtl";
+  const isRTL = useApp().ownerDocument.documentElement.dir === "rtl";
 
   return (
     <fieldset>

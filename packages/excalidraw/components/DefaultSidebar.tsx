@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useEffect } from "react";
 
 import {
   CANVAS_SEARCH_TAB,
@@ -14,7 +15,7 @@ import { useUIAppState } from "../context/ui-appState";
 
 import "../components/dropdownMenu/DropdownMenu.scss";
 
-import { useExcalidrawSetAppState } from "./App";
+import { useAppProps, useExcalidrawSetAppState } from "./App";
 import { LibraryMenu } from "./LibraryMenu";
 import { SearchMenu } from "./SearchMenu";
 import { Sidebar } from "./Sidebar/Sidebar";
@@ -30,6 +31,13 @@ const DefaultSidebarTrigger = withInternalFallback(
       React.HTMLAttributes<HTMLDivElement>,
   ) => {
     const { DefaultSidebarTriggerTunnel } = useTunnels();
+    const { UIOptions } = useAppProps();
+    const isFallback = (props as { __fallback?: boolean }).__fallback;
+
+    if (isFallback && UIOptions.library === false) {
+      return null;
+    }
+
     return (
       <DefaultSidebarTriggerTunnel.In>
         <Sidebar.Trigger
@@ -71,6 +79,23 @@ export const DefaultSidebar = Object.assign(
     >) => {
       const appState = useUIAppState();
       const setAppState = useExcalidrawSetAppState();
+      const { UIOptions } = useAppProps();
+      const libraryEnabled = UIOptions.library !== false;
+
+      useEffect(() => {
+        if (
+          !libraryEnabled &&
+          appState.openSidebar?.name === DEFAULT_SIDEBAR.name &&
+          appState.openSidebar?.tab === LIBRARY_SIDEBAR_TAB
+        ) {
+          setAppState({ openSidebar: null });
+        }
+      }, [
+        appState.openSidebar?.name,
+        appState.openSidebar?.tab,
+        libraryEnabled,
+        setAppState,
+      ]);
 
       const { DefaultSidebarTabTriggersTunnel } = useTunnels();
 
@@ -102,15 +127,19 @@ export const DefaultSidebar = Object.assign(
                 <Sidebar.TabTrigger tab={CANVAS_SEARCH_TAB}>
                   {searchIcon}
                 </Sidebar.TabTrigger>
-                <Sidebar.TabTrigger tab={LIBRARY_SIDEBAR_TAB}>
-                  {LibraryIcon}
-                </Sidebar.TabTrigger>
+                {libraryEnabled && (
+                  <Sidebar.TabTrigger tab={LIBRARY_SIDEBAR_TAB}>
+                    {LibraryIcon}
+                  </Sidebar.TabTrigger>
+                )}
                 <DefaultSidebarTabTriggersTunnel.Out />
               </Sidebar.TabTriggers>
             </Sidebar.Header>
-            <Sidebar.Tab tab={LIBRARY_SIDEBAR_TAB}>
-              <LibraryMenu />
-            </Sidebar.Tab>
+            {libraryEnabled && (
+              <Sidebar.Tab tab={LIBRARY_SIDEBAR_TAB}>
+                <LibraryMenu />
+              </Sidebar.Tab>
+            )}
             <Sidebar.Tab tab={CANVAS_SEARCH_TAB}>
               <SearchMenu />
             </Sidebar.Tab>

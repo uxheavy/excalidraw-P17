@@ -8,7 +8,10 @@ import { actionToggleTheme } from "../actions";
 import { getShortcutFromShortcutName } from "../actions/shortcuts";
 import { probablySupportsClipboardBlob } from "../clipboard";
 import { t } from "../i18n";
-import { getShortcutKey } from "../shortcut";
+import { getShortcutKey, getShortcutLabel } from "../shortcut";
+
+import { isHostToolbarMenu } from "./HostToolbar";
+import { getToolShortcutKeys, type ToolbarToolType } from "./Tools";
 
 import { useExcalidrawActionManager } from "./App";
 import { Dialog } from "./Dialog";
@@ -17,6 +20,7 @@ import { ExternalLinkIcon, GithubIcon, youtubeIcon } from "./icons";
 import "./HelpDialog.scss";
 
 import type { JSX } from "react";
+import type { HostToolbarItem, ToolShortcutOverrides } from "../types";
 
 const Header = () => (
   <div className="HelpDialog__header">
@@ -125,8 +129,18 @@ const ShortcutKey = (props: { children: React.ReactNode }) => (
   <kbd className="HelpDialog__key" {...props} />
 );
 
-export const HelpDialog = ({ onClose }: { onClose?: () => void }) => {
+export const HelpDialog = ({
+  onClose,
+  hostToolbarItems,
+  toolShortcutOverrides,
+}: {
+  onClose?: () => void;
+  hostToolbarItems?: readonly HostToolbarItem[];
+  toolShortcutOverrides?: ToolShortcutOverrides;
+}) => {
   const actionManager = useExcalidrawActionManager();
+  const toolShortcuts = (type: ToolbarToolType) =>
+    getToolShortcutKeys(type, toolShortcutOverrides);
   const handleClose = React.useCallback(() => {
     if (onClose) {
       onClose();
@@ -146,47 +160,82 @@ export const HelpDialog = ({ onClose }: { onClose?: () => void }) => {
             className="HelpDialog__island--tools"
             caption={t("helpDialog.tools")}
           >
-            <Shortcut label={t("toolBar.hand")} shortcuts={[KEYS.H]} />
+            <Shortcut
+              label={t("toolBar.hand")}
+              shortcuts={toolShortcuts("hand")}
+            />
             <Shortcut
               label={t("toolBar.selection")}
-              shortcuts={[KEYS.V, KEYS["1"]]}
+              shortcuts={toolShortcuts("selection")}
             />
             <Shortcut
               label={t("toolBar.rectangle")}
-              shortcuts={[KEYS.R, KEYS["2"]]}
+              shortcuts={toolShortcuts("rectangle")}
             />
             <Shortcut
               label={t("toolBar.diamond")}
-              shortcuts={[KEYS.D, KEYS["3"]]}
+              shortcuts={toolShortcuts("diamond")}
             />
             <Shortcut
               label={t("toolBar.ellipse")}
-              shortcuts={[KEYS.O, KEYS["4"]]}
+              shortcuts={toolShortcuts("ellipse")}
             />
             <Shortcut
               label={t("toolBar.arrow")}
-              shortcuts={[KEYS.A, KEYS["5"]]}
+              shortcuts={toolShortcuts("arrow")}
             />
             <Shortcut
               label={t("toolBar.line")}
-              shortcuts={[KEYS.L, KEYS["6"]]}
+              shortcuts={toolShortcuts("line")}
             />
             <Shortcut
               label={t("toolBar.freedraw")}
-              shortcuts={[KEYS.P, KEYS["7"]]}
+              shortcuts={toolShortcuts("freedraw")}
             />
+            {toolShortcuts("autoshape").length > 0 && (
+              <Shortcut
+                label={t("toolBar.autoshape")}
+                shortcuts={toolShortcuts("autoshape")}
+              />
+            )}
             <Shortcut
               label={t("toolBar.text")}
-              shortcuts={[KEYS.T, KEYS["8"]]}
+              shortcuts={toolShortcuts("text")}
             />
-            <Shortcut label={t("toolBar.image")} shortcuts={[KEYS["9"]]} />
+            <Shortcut
+              label={t("toolBar.image")}
+              shortcuts={toolShortcuts("image")}
+            />
             <Shortcut
               label={t("toolBar.eraser")}
-              shortcuts={[KEYS.E, KEYS["0"]]}
+              shortcuts={toolShortcuts("eraser")}
             />
-            <Shortcut label={t("toolBar.frame")} shortcuts={[KEYS.F]} />
-            <Shortcut label={t("toolBar.laser")} shortcuts={[KEYS.K]} />
-            <Shortcut label={t("toolBar.bucketfill")} shortcuts={[KEYS.B]} />
+            <Shortcut
+              label={t("toolBar.frame")}
+              shortcuts={toolShortcuts("frame")}
+            />
+            <Shortcut
+              label={t("toolBar.laser")}
+              shortcuts={toolShortcuts("laser")}
+            />
+            {toolShortcuts("bucketfill").length > 0 && (
+              <Shortcut
+                label={t("toolBar.bucketfill")}
+                shortcuts={toolShortcuts("bucketfill")}
+              />
+            )}
+            {(hostToolbarItems ?? [])
+              .flatMap((item) =>
+                isHostToolbarMenu(item) ? item.items : [item],
+              )
+              .filter((item) => item.shortcuts?.length)
+              .map((item) => (
+                <Shortcut
+                  key={item.id}
+                  label={item.label}
+                  shortcuts={(item.shortcuts ?? []).map(getShortcutLabel)}
+                />
+              ))}
             <Shortcut
               label={t("labels.eyeDropper")}
               shortcuts={[KEYS.I, "Shift+S", "Shift+G"]}
@@ -396,12 +445,13 @@ export const HelpDialog = ({ onClose }: { onClose?: () => void }) => {
             />
             {/* firefox supports clipboard API under a flag, so we'll
                 show users what they can do in the error message */}
-            {(probablySupportsClipboardBlob || isFirefox) && (
-              <Shortcut
-                label={t("labels.copyAsPng")}
-                shortcuts={[getShortcutKey("Shift+Alt+C")]}
-              />
-            )}
+            {actionManager.app.props.UIOptions.canvasActions.export !== false &&
+              (probablySupportsClipboardBlob || isFirefox) && (
+                <Shortcut
+                  label={t("labels.copyAsPng")}
+                  shortcuts={[getShortcutKey("Shift+Alt+C")]}
+                />
+              )}
             <Shortcut
               label={t("labels.copyStyles")}
               shortcuts={[getShortcutKey("CtrlOrCmd+Alt+C")]}

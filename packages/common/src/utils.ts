@@ -92,7 +92,7 @@ export const isInteractive = (target: Element | EventTarget | null) => {
     isInputLike(target) ||
     (!!targetWindow &&
       target instanceof targetWindow.Element &&
-      !!target.closest("label, button"))
+      !!target.closest("label, button, a, [contenteditable]"))
   );
 };
 

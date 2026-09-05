@@ -56,7 +56,7 @@ const MenuContent = ({
   );
 
   useEffect(() => {
-    if (!open) {
+    if (!open || !callbacksRef.onClickOutside) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {

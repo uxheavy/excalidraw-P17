@@ -7,6 +7,7 @@ import { KEYS, arrayToMap, getLineHeight } from "@excalidraw/common";
 
 import { getElementBounds } from "@excalidraw/element";
 
+import { actionCut } from "../actions";
 import { createPasteEvent, serializeAsClipboardJSON } from "../clipboard";
 
 import { Excalidraw } from "../index";
@@ -164,6 +165,39 @@ describe("general paste behavior", () => {
       expect(h.elements.length).toBe(1);
       expect(h.elements[0].seed).toBe(rectangle.seed);
     });
+  });
+});
+
+describe("cut behavior", () => {
+  it("keeps the selected elements when copying to the clipboard fails", async () => {
+    const rectangle = API.createElement({ id: "cut-rectangle" });
+    API.setElements([rectangle]);
+    API.setSelectedElements([rectangle]);
+
+    const originalExecCommand = Object.getOwnPropertyDescriptor(
+      document,
+      "execCommand",
+    );
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: vi.fn(() => false),
+    });
+
+    try {
+      API.executeAction(actionCut);
+
+      await waitFor(() => {
+        expect(h.elements).toHaveLength(1);
+        expect(h.elements[0].isDeleted).toBe(false);
+        expect(h.state.errorMessage).toBe("Error copying to clipboard.");
+      });
+    } finally {
+      if (originalExecCommand) {
+        Object.defineProperty(document, "execCommand", originalExecCommand);
+      } else {
+        delete (document as { execCommand?: unknown }).execCommand;
+      }
+    }
   });
 });
 

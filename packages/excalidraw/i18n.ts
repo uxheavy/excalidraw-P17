@@ -18,7 +18,7 @@ export type TranslationKeys = NestedKeyOf<typeof fallbackLangData>;
 
 export const defaultLang = { code: "en", label: "English" };
 
-export const languages: Language[] = [
+const languageMetadata: Language[] = [
   defaultLang,
   ...[
     { code: "ar-SA", label: "العربية", rtl: true },
@@ -65,14 +65,16 @@ export const languages: Language[] = [
     { code: "zh-TW", label: "繁體中文" },
     { code: "vi-VN", label: "Tiếng Việt" },
     { code: "mr-IN", label: "मराठी" },
-  ]
-    .filter(
-      (lang) =>
-        (percentages as Record<string, number>)[lang.code] >=
-        COMPLETION_THRESHOLD,
-    )
-    .sort((left, right) => (left.label > right.label ? 1 : -1)),
+  ],
 ];
+
+export const languages: Language[] = languageMetadata
+  .filter(
+    (lang) =>
+      (percentages as Record<string, number>)[lang.code] >=
+      COMPLETION_THRESHOLD,
+  )
+  .sort((left, right) => (left.label > right.label ? 1 : -1));
 
 const TEST_LANG_CODE = "__test__";
 if (isDevEnv()) {
@@ -86,26 +88,39 @@ if (isDevEnv()) {
   );
 }
 
+export const resolveLanguage = (code?: Language["code"]): Language =>
+  languages.find((lang) => lang.code === code) ||
+  languageMetadata.find((lang) => lang.code === code) ||
+  defaultLang;
+
 let currentLang: Language = defaultLang;
 let currentLangData = {};
+let latestLanguageRequest = 0;
 
-export const setLanguage = async (lang: Language) => {
-  currentLang = lang;
-  document.documentElement.dir = currentLang.rtl ? "rtl" : "ltr";
-  document.documentElement.lang = currentLang.code;
+export const setLanguage = async (lang: Language): Promise<boolean> => {
+  const request = ++latestLanguageRequest;
+  let nextLangData = {};
 
   if (lang.code.startsWith(TEST_LANG_CODE)) {
-    currentLangData = {};
+    nextLangData = {};
   } else {
     try {
-      currentLangData = await import(`./locales/${currentLang.code}.json`);
+      const languageModule = await import(`./locales/${lang.code}.json`);
+      nextLangData = languageModule.default ?? languageModule;
     } catch (error: any) {
       console.error(`Failed to load language ${lang.code}:`, error.message);
-      currentLangData = fallbackLangData;
+      nextLangData = fallbackLangData;
     }
   }
 
+  if (request !== latestLanguageRequest) {
+    return false;
+  }
+
+  currentLang = lang;
+  currentLangData = nextLangData;
   editorJotaiStore.set(editorLangCodeAtom, lang.code);
+  return true;
 };
 
 export const getLanguage = () => currentLang;

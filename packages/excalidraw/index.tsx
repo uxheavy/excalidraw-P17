@@ -82,6 +82,9 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     onPointerUpdate,
     renderTopLeftUI,
     renderTopRightUI,
+    renderCollaboratorAvatar,
+    hostToolbarItems,
+    toolShortcutOverrides,
     langCode = defaultLang.code,
     viewModeEnabled,
     interaction,
@@ -101,6 +104,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     generateIdForFile,
     onLinkOpen,
     generateLinkForSelection,
+    onElementActivate,
+    isElementTextEditable,
     onPointerDown,
     onPointerUp,
     onScrollChange,
@@ -111,6 +116,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
     validateEmbeddable,
     shouldLoadEmbeddable,
     onEmbeddableLoadRequest,
+    renderHostElement,
     renderEmbeddable,
     aiEnabled,
     showDeprecatedFonts,
@@ -126,6 +132,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
   // compares the same values
   const UIOptions: AppProps["UIOptions"] = {
     ...props.UIOptions,
+    library: props.UIOptions?.library ?? DEFAULT_UI_OPTIONS.library,
     canvasActions: {
       ...DEFAULT_UI_OPTIONS.canvasActions,
       ...canvasActions,
@@ -226,6 +233,9 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           onPointerUpdate={onPointerUpdate}
           renderTopLeftUI={renderTopLeftUI}
           renderTopRightUI={renderTopRightUI}
+          renderCollaboratorAvatar={renderCollaboratorAvatar}
+          hostToolbarItems={hostToolbarItems}
+          toolShortcutOverrides={toolShortcutOverrides}
           langCode={langCode}
           viewModeEnabled={viewModeEnabled}
           interaction={interaction}
@@ -246,6 +256,8 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           generateIdForFile={generateIdForFile}
           onLinkOpen={onLinkOpen}
           generateLinkForSelection={generateLinkForSelection}
+          onElementActivate={onElementActivate}
+          isElementTextEditable={isElementTextEditable}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
           onScrollChange={onScrollChange}
@@ -255,6 +267,7 @@ const ExcalidrawBase = (props: ExcalidrawProps) => {
           validateEmbeddable={validateEmbeddable}
           shouldLoadEmbeddable={shouldLoadEmbeddable}
           onEmbeddableLoadRequest={onEmbeddableLoadRequest}
+          renderHostElement={renderHostElement}
           renderEmbeddable={renderEmbeddable}
           aiEnabled={aiEnabled !== false}
           showDeprecatedFonts={showDeprecatedFonts}
@@ -499,6 +512,15 @@ export type {
 } from "./components/TTDDialog/types";
 
 export type { ViewportStatusFrame } from "./types";
+export type {
+  EditorShortcut,
+  ExcalidrawToolId,
+  HostToolbarButton,
+  HostToolbarItem,
+  HostToolbarMenuDescriptor,
+  CollaboratorAvatarProps,
+  ToolShortcutOverrides,
+} from "./types";
 
 export { zoomToFitBounds, DEFAULT_OVERSCROLL } from "./viewport";
 

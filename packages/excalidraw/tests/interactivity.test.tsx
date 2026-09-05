@@ -1,19 +1,27 @@
 import React from "react";
 import { vi } from "vitest";
 
-import { CODES, CURSOR_TYPE, POINTER_BUTTON } from "@excalidraw/common";
+import {
+  CANVAS_SEARCH_TAB,
+  CODES,
+  CURSOR_TYPE,
+  POINTER_BUTTON,
+} from "@excalidraw/common";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { actionZoomIn } from "../actions/actionCanvas";
+import { actionBindText } from "../actions";
 import { createPasteEvent, serializeAsClipboardJSON } from "../clipboard";
 import { DefaultSidebar, Excalidraw, Footer, MainMenu } from "../index";
+import { getShortcutKey } from "../shortcut";
 
 import { API } from "./helpers/api";
 import { Keyboard, Pointer, UI } from "./helpers/ui";
 import { getTextEditor, updateTextEditor } from "./queries/dom";
 import {
   act,
+  createEvent,
   fireEvent,
   GlobalTestState,
   mockBoundingClientRect,
@@ -505,6 +513,82 @@ describe("toggling `interaction` at runtime", () => {
     });
   });
 
+  it("cleans up an active text editor when unmounted after interaction is disabled", async () => {
+    mockBoundingClientRect();
+    await render(<Excalidraw autoFocus={true} handleKeyboardGlobally={true} />);
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    const text = API.createElement({
+      type: "text",
+      text: "before",
+      x: 20,
+      y: 20,
+    });
+    API.setElements([text]);
+    API.setSelectedElements([text]);
+    Keyboard.keyPress("Enter");
+    const editor = await getTextEditor();
+
+    GlobalTestState.renderResult.rerender(
+      <Excalidraw
+        interaction={false}
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+      />,
+    );
+    GlobalTestState.renderResult.unmount();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(editor.oninput).toBe(null);
+  });
+
+  it("notifies the host when unmounting finalizes an empty text element", async () => {
+    mockBoundingClientRect();
+    const onChange = vi.fn();
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    const text = API.createElement({
+      type: "text",
+      text: "before",
+      x: 20,
+      y: 20,
+    });
+    API.setElements([text]);
+    API.setSelectedElements([text]);
+    Keyboard.keyPress("Enter");
+
+    const editor = await getTextEditor();
+    updateTextEditor(editor, "");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const onChangeCallsBeforeUnmount = onChange.mock.calls.length;
+
+    GlobalTestState.renderResult.unmount();
+
+    expect(onChange.mock.calls.length).toBeGreaterThan(
+      onChangeCallsBeforeUnmount,
+    );
+    expect(onChange.mock.lastCall?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: text.id,
+          isDeleted: true,
+          originalText: "",
+        }),
+      ]),
+    );
+  });
+
   it("commits and closes frame-name editing when interaction is disabled", async () => {
     mockBoundingClientRect();
     await render(<Excalidraw autoFocus={true} handleKeyboardGlobally={true} />);
@@ -770,7 +854,312 @@ describe("ui={{ enabled: ... }}", () => {
   });
 });
 
-describe("ui={false} with host UI", () => {
+describe("host UI", () => {
+  it("renders host tools inside the desktop toolbar", async () => {
+    const { container } = await render(
+      <Excalidraw
+        hostToolbarItems={[
+          {
+            id: "host-toolbar-tool",
+            label: "Host tool",
+            onSelect: () => {},
+          },
+          {
+            id: "host-toolbar-toggle",
+            label: "Host toggle",
+            checked: false,
+            shortcuts: [{ key: "t", altKey: true }],
+            onSelect: () => {},
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      container
+        .querySelector(".App-toolbar")
+        ?.querySelector("[data-testid='host-toolbar-host-toolbar-tool']"),
+    ).not.toBe(null);
+    expect(
+      container.querySelector("[data-testid='host-toolbar-host-toolbar-tool']"),
+    ).toHaveTextContent("Host tool");
+    expect(
+      container.querySelector(
+        "[data-testid='host-toolbar-host-toolbar-toggle']",
+      ),
+    ).toHaveTextContent("Host toggle");
+    expect(
+      container.querySelector(
+        "[data-testid='host-toolbar-host-toolbar-toggle']",
+      ),
+    ).toHaveAttribute("aria-keyshortcuts", "Alt+T");
+  });
+
+  it("keeps host menus inaccessible when disabled and exposes checked children", async () => {
+    const onSelect = vi.fn();
+    const getItems = (disabled = false) => [
+      {
+        id: "host-menu",
+        type: "menu" as const,
+        label: "Host menu",
+        disabled,
+        items: [
+          {
+            id: "host-menu-item",
+            label: "Host menu item",
+            checked: true,
+            shortcuts: [{ key: "ArrowLeft", ctrlOrCmd: true }],
+            onSelect,
+          },
+        ],
+      },
+    ];
+
+    const { container } = await render(
+      <Excalidraw hostToolbarItems={getItems()} />,
+    );
+
+    fireEvent.pointerDown(
+      container.querySelector("[aria-label='Host menu']")!,
+      {
+        button: 0,
+        ctrlKey: false,
+      },
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector("[aria-label='Host menu item']"),
+      ).toHaveAttribute("aria-pressed", "true"),
+    );
+    expect(
+      document.querySelector("[aria-label='Host menu item']"),
+    ).toHaveAttribute("aria-keyshortcuts", "Control+ArrowLeft Meta+ArrowLeft");
+
+    GlobalTestState.renderResult.rerender(
+      <Excalidraw hostToolbarItems={getItems(true)} />,
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector("[aria-label='Host menu item']"),
+      ).toBeNull(),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("closes host menus when switching menus or interacting with the canvas", async () => {
+    const getItems = () => [
+      {
+        id: "work-items",
+        type: "menu" as const,
+        label: "Work items",
+        items: [
+          {
+            id: "work-item",
+            label: "Work item",
+            checked: true,
+            onSelect: () => {},
+          },
+        ],
+      },
+      {
+        id: "add",
+        type: "menu" as const,
+        label: "Add",
+        items: [
+          {
+            id: "add-item",
+            label: "Add item",
+            onSelect: () => {},
+          },
+        ],
+      },
+    ];
+
+    const { container } = await render(
+      <Excalidraw hostToolbarItems={getItems()} />,
+    );
+    const workItemsTrigger = container.querySelector(
+      "[aria-label='Work items']",
+    )!;
+    const addTrigger = container.querySelector("[aria-label='Add']")!;
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    expect(document.querySelector("[aria-label='Work item']")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.pointerDown(addTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() => {
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull();
+      expect(document.querySelector("[aria-label='Add item']")).not.toBeNull();
+    });
+
+    fireEvent.pointerDown(GlobalTestState.interactiveCanvas, { button: 0 });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Add item']")).toBeNull(),
+    );
+    fireEvent.pointerUp(GlobalTestState.interactiveCanvas, { button: 0 });
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    expect(document.querySelector("[aria-label='Work item']")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull(),
+    );
+
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).not.toBe(null),
+    );
+    fireEvent.pointerDown(workItemsTrigger, { button: 0, ctrlKey: false });
+    await waitFor(() =>
+      expect(document.querySelector("[aria-label='Work item']")).toBeNull(),
+    );
+  });
+
+  it("keeps Mermaid available when AI tools are disabled", async () => {
+    const { container } = await render(<Excalidraw aiEnabled={false} />);
+
+    fireEvent.click(
+      container.querySelector(".App-toolbar__extra-tools-trigger")!,
+    );
+    await waitFor(() =>
+      expect(
+        [
+          ...document.querySelectorAll("[data-testid='toolbar-embeddable']"),
+        ].some((element) => element.textContent?.includes("Mermaid")),
+      ).toBe(true),
+    );
+    expect(
+      document.querySelector("[data-testid='toolbar-magicframe']"),
+    ).toBeNull();
+  });
+
+  it("dispatches host shortcuts only from the guarded editor surface", async () => {
+    const onSelect = vi.fn();
+    const { container } = await render(
+      <Excalidraw
+        hostToolbarItems={[
+          {
+            id: "work-item",
+            label: "Work item",
+            shortcuts: [{ key: "w" }],
+            onSelect,
+          },
+          {
+            id: "sources",
+            type: "menu",
+            label: "Sources",
+            items: [],
+          },
+          {
+            id: "host-command",
+            label: "Host command",
+            shortcuts: [
+              { key: "k", ctrlOrCmd: true, altKey: true, shiftKey: true },
+            ],
+            onSelect: () => {},
+          },
+          {
+            id: "host-search",
+            label: "Host search",
+            shortcuts: [{ key: "f", ctrlOrCmd: true }],
+            onSelect,
+          },
+        ]}
+        toolShortcutOverrides={{
+          autoshape: [{ key: "x", shiftKey: true }],
+          rectangle: [{ key: "r", ctrlOrCmd: true, altKey: true }],
+        }}
+        renderTopLeftUI={() => (
+          <>
+            <input data-testid="host-input" />
+            <div
+              data-testid="host-editable"
+              contentEditable
+              suppressContentEditableWarning
+            >
+              <span data-testid="host-editable-child">Editable</span>
+            </div>
+            <a href="#host-link" data-testid="host-link">
+              Host link
+            </a>
+          </>
+        )}
+      />,
+    );
+    const editor = container.querySelector(".excalidraw")!;
+
+    const modifiedToolEvent = createEvent.keyDown(editor, {
+      key: "r",
+      metaKey: true,
+      altKey: true,
+    });
+    fireEvent(editor, modifiedToolEvent);
+    expect(h.state.activeTool.type).toBe("rectangle");
+    expect(modifiedToolEvent.defaultPrevented).toBe(true);
+
+    fireEvent.keyDown(editor, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(editor, { key: "w", metaKey: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(editor, { key: "w", isComposing: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-input']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-editable-child']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-link']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[aria-label='Sources']")!, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(editor, { key: "f", ctrlKey: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(h.state.openSidebar?.tab).toBe(CANVAS_SEARCH_TAB);
+
+    fireEvent.keyDown(editor, { key: "?" });
+    await waitFor(() =>
+      expect(document.querySelector(".HelpDialog")).not.toBe(null),
+    );
+    const shortcutRows = [
+      ...document.querySelectorAll(".HelpDialog__shortcut"),
+    ];
+    const shortcutKeys = (label: string) =>
+      [
+        ...shortcutRows
+          .find((row) => row.textContent?.includes(label))!
+          .querySelectorAll("kbd"),
+      ].map((key) => key.textContent);
+    expect(shortcutKeys("Draw to shape")).toEqual(["Shift", "X"]);
+    expect(shortcutKeys("Host command")).toEqual([
+      getShortcutKey("CtrlOrCmd"),
+      getShortcutKey("Alt"),
+      getShortcutKey("Shift"),
+      "K",
+    ]);
+    fireEvent.keyDown(editor, { key: "w" });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
   it("renders host outlets and dialogs invoked by host UI", async () => {
     const { container } = await render(
       <Excalidraw
@@ -1400,6 +1789,318 @@ describe("interaction={{ enabled: { embeds / interactiveContent } }}", () => {
     );
     expect(h.app.isLinksEnabled()).toBe(true);
     expect(h.app.isEmbedsEnabled()).toBe(true);
+  });
+});
+
+describe("renderHostElement", () => {
+  beforeEach(() => {
+    mockBoundingClientRect();
+  });
+
+  afterEach(() => {
+    restoreOriginalGetBoundingClientRect();
+  });
+
+  it("renders host content over native elements without URL semantics", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const linkedElement = {
+      ...API.createElement({
+        type: "rectangle",
+        x: 80,
+        y: 10,
+        width: 60,
+        height: 40,
+      }),
+      link: "https://example.com",
+    };
+    const embeddableElement = {
+      ...API.createElement({
+        type: "embeddable",
+        x: 10,
+        y: 80,
+        width: 120,
+        height: 80,
+      }),
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    };
+    const renderHostElement = vi.fn((element) =>
+      element.id === hostElement.id ? (
+        <div data-testid="host-content">Host content</div>
+      ) : (
+        <div data-testid="unexpected-host-content" />
+      ),
+    );
+
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        validateEmbeddable={true}
+        renderHostElement={renderHostElement}
+        initialData={{
+          elements: [hostElement, linkedElement, embeddableElement],
+        }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    Object.assign(document, {
+      elementFromPoint: () => GlobalTestState.canvas,
+    });
+
+    expect(queryContainer("[data-testid=host-content]")).not.toBe(null);
+    expect(queryContainer("[data-testid=unexpected-host-content]")).toBe(null);
+    expect(queryContainer(".excalidraw__host-element-container")).not.toBe(
+      null,
+    );
+    expect(queryContainer(".excalidraw__embeddable-hint")).toBe(null);
+    expect(
+      renderHostElement.mock.calls.some(
+        ([element]) => element.id === linkedElement.id,
+      ),
+    ).toBe(false);
+    expect(
+      renderHostElement.mock.calls.some(
+        ([element]) => element.id === embeddableElement.id,
+      ),
+    ).toBe(false);
+
+    expect(h.state.activeEmbeddable).toBe(null);
+  });
+
+  it("lets a host consume native activation before Excalidraw text editing", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+      backgroundColor: "red",
+      fillStyle: "solid",
+    });
+    const nativeElement = API.createElement({
+      type: "rectangle",
+      x: 100,
+      y: 10,
+      width: 60,
+      height: 40,
+      backgroundColor: "blue",
+      fillStyle: "solid",
+    });
+    const onElementActivate = vi.fn(
+      (element: ExcalidrawElement) => element.id === hostElement.id,
+    );
+
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        onElementActivate={onElementActivate}
+        initialData={{ elements: [hostElement, nativeElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    Object.assign(document, {
+      elementFromPoint: () => GlobalTestState.canvas,
+    });
+
+    UI.clickTool("selection");
+    mouse.doubleClickAt(40, 30);
+
+    expect(onElementActivate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: hostElement.id }),
+    );
+    expect(await getTextEditor({ waitForEditor: false })).toBe(null);
+
+    API.setSelectedElements([hostElement]);
+    Keyboard.keyPress("Enter");
+
+    expect(onElementActivate).toHaveBeenCalledTimes(2);
+    expect(await getTextEditor({ waitForEditor: false })).toBe(null);
+
+    mouse.doubleClickAt(130, 30);
+    expect(onElementActivate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: nativeElement.id }),
+    );
+    const nativeEditor = await getTextEditor();
+    expect(nativeEditor).not.toBe(null);
+    Keyboard.exitTextEditor(nativeEditor);
+
+    API.setAppState({ viewModeEnabled: true });
+    expect(h.state.viewModeEnabled).toBe(true);
+    API.setSelectedElements([hostElement]);
+    Keyboard.keyPress("Enter");
+
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+
+    API.setAppState({ viewModeEnabled: false, openDialog: { name: "help" } });
+    Keyboard.keyDown("Enter");
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+    API.setAppState({ openDialog: null });
+
+    const focusedButton = document.createElement("button");
+    focusedButton.type = "button";
+    GlobalTestState.renderResult.container.append(focusedButton);
+    focusedButton.focus();
+    Keyboard.keyDown("Enter", focusedButton);
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+    focusedButton.remove();
+  });
+
+  it("applies host text eligibility to API binding", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const textElement = API.createElement({
+      type: "text",
+      x: 20,
+      y: 20,
+      text: "host label",
+      width: 60,
+      height: 20,
+    });
+
+    await render(
+      <Excalidraw
+        isElementTextEditable={(element) => element.id !== hostElement.id}
+        initialData={{ elements: [hostElement, textElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    API.setSelectedElements([hostElement, textElement]);
+    h.app.actionManager.executeAction(actionBindText, "api");
+
+    const currentHostElement = h.elements.find(
+      (element) => element.id === hostElement.id,
+    );
+    const currentTextElement = h.elements.find(
+      (element) => element.id === textElement.id,
+    );
+    expect(currentHostElement?.boundElements).toHaveLength(0);
+    expect(currentTextElement).toEqual(
+      expect.objectContaining({ containerId: null }),
+    );
+  });
+
+  it("preserves host surface order and image transforms", async () => {
+    const firstHostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const secondHostElement = API.createElement({
+      type: "rectangle",
+      x: 80,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const flippedImage = API.createElement({
+      type: "image",
+      x: 10,
+      y: 80,
+      width: 120,
+      height: 80,
+      scale: [-1, 1],
+      fileId: "host-image",
+    });
+    const renderHostElement = vi.fn((element) => {
+      if (element.id === firstHostElement.id) {
+        return <div data-testid="first-host-content">First host</div>;
+      }
+      if (element.id === secondHostElement.id) {
+        return <div data-testid="second-host-content">Second host</div>;
+      }
+      if (element.id === flippedImage.id) {
+        return <div data-testid="flipped-host-content">Image host</div>;
+      }
+      return null;
+    });
+
+    await render(
+      <Excalidraw
+        renderHostElement={renderHostElement}
+        initialData={{
+          elements: [firstHostElement, secondHostElement, flippedImage],
+        }}
+      />,
+    );
+
+    const hostContents = [
+      ...GlobalTestState.renderResult.container.querySelectorAll(
+        "[data-testid$='-host-content']",
+      ),
+    ].map((element) => element.getAttribute("data-testid"));
+    expect(hostContents).toEqual([
+      "first-host-content",
+      "second-host-content",
+      "flipped-host-content",
+    ]);
+    expect(
+      queryContainer("[data-testid='flipped-host-content']")?.parentElement,
+    ).toHaveStyle("transform: rotate(0rad) scale(-1, 1)");
+
+    act(() => {
+      API.setAppState({
+        openDialog: {
+          name: "elementLinkSelector",
+          sourceElementId: firstHostElement.id,
+        },
+        selectedElementIds: {},
+        hoveredElementIds: {},
+      });
+    });
+    await waitFor(() =>
+      expect(queryContainer(".excalidraw__host-element-container")).toHaveStyle(
+        "opacity: 0.3",
+      ),
+    );
+  });
+
+  it("leaves URL embeddable rendering and activation unchanged", async () => {
+    const embeddableElement = {
+      ...API.createElement({
+        type: "embeddable",
+        x: 20,
+        y: 20,
+        width: 120,
+        height: 90,
+      }),
+      link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    };
+    const renderHostElement = vi.fn(() => null);
+
+    await render(
+      <Excalidraw
+        interaction={{ enabled: { embeds: true } }}
+        validateEmbeddable={true}
+        renderHostElement={renderHostElement}
+        initialData={{ elements: [embeddableElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    await waitFor(() =>
+      expect(queryContainer("iframe.excalidraw__embeddable")).not.toBe(null),
+    );
+
+    mouse.moveTo(80, 65);
+    await waitFor(() =>
+      expect(h.state.activeEmbeddable).toMatchObject({ state: "hover" }),
+    );
+    expect(renderHostElement).not.toHaveBeenCalled();
+    expect(queryContainer(".excalidraw__embeddable-hint")).not.toBe(null);
   });
 });
 

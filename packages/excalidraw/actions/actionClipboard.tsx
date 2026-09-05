@@ -37,10 +37,7 @@ export const actionCopy = register<ClipboardEvent | null>({
     } catch (error: any) {
       return {
         captureUpdate: CaptureUpdateAction.EVENTUALLY,
-        appState: {
-          ...appState,
-          errorMessage: error.message,
-        },
+        appState: { errorMessage: error.message },
       };
     }
 
@@ -114,9 +111,21 @@ export const actionCut = register<ClipboardEvent | null>({
   label: "labels.cut",
   icon: cutIcon,
   trackEvent: { category: "element" },
-  perform: (elements, appState, event, app) => {
-    actionCopy.perform(elements, appState, event, app);
-    return actionDeleteSelected.perform(elements, appState, null, app);
+  perform: async (elements, appState, event, app) => {
+    const copyResult = await actionCopy.perform(elements, appState, event, app);
+    if (copyResult === false || copyResult.appState?.errorMessage) {
+      return copyResult;
+    }
+
+    return actionDeleteSelected.perform(
+      app.scene.getElementsIncludingDeleted(),
+      {
+        ...app.state,
+        selectedElementIds: appState.selectedElementIds,
+      },
+      null,
+      app,
+    );
   },
   keyTest: (event) => event[KEYS.CTRL_OR_CMD] && event.key === KEYS.X,
 });
@@ -183,8 +192,12 @@ export const actionCopyAsSvg = register({
       };
     }
   },
-  predicate: (elements) => {
-    return probablySupportsClipboardWriteText && elements.length > 0;
+  predicate: (elements, _appState, _appProps, app) => {
+    return (
+      probablySupportsClipboardWriteText &&
+      elements.length > 0 &&
+      app.props.UIOptions.canvasActions.export !== false
+    );
   },
   keywords: ["svg", "clipboard", "copy"],
 });
@@ -244,10 +257,18 @@ export const actionCopyAsPng = register({
       };
     }
   },
-  predicate: (elements) => {
-    return probablySupportsClipboardBlob && elements.length > 0;
+  predicate: (elements, _appState, _appProps, app) => {
+    return (
+      probablySupportsClipboardBlob &&
+      elements.length > 0 &&
+      app.props.UIOptions.canvasActions.export !== false
+    );
   },
-  keyTest: (event) => event.code === CODES.C && event.altKey && event.shiftKey,
+  keyTest: (event, _appState, _elements, app) =>
+    app.props.UIOptions.canvasActions.export !== false &&
+    event.code === CODES.C &&
+    event.altKey &&
+    event.shiftKey,
   keywords: ["png", "clipboard", "copy"],
 });
 

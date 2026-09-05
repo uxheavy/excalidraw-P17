@@ -68,6 +68,7 @@ import {
   getFontString,
   getNearestScrollableContainer,
   isInputLike,
+  isInteractive,
   isToolIcon,
   isWritableElement,
   sceneCoordsToViewportCoords,
@@ -359,7 +360,7 @@ import Library, { distributeLibraryItemsOnSquareGrid } from "../data/library";
 import { restoreAppState, restoreElements } from "../data/restore";
 import { getCenter, getDistance } from "../gesture";
 import { History } from "../history";
-import { defaultLang, getLanguage, languages, setLanguage, t } from "../i18n";
+import { getLanguage, resolveLanguage, setLanguage, t } from "../i18n";
 
 import {
   getScrollToContentState,
@@ -454,6 +455,10 @@ import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
 import { AppStateObserver, type OnStateChange } from "./AppStateObserver";
 
 import { findShapeByKey, TOGGLE_TOOLS } from "./Tools";
+import {
+  findActiveHostToolbarItem,
+  findHostToolbarItemByShortcut,
+} from "./HostToolbar";
 
 import UnlockPopup from "./UnlockPopup";
 
@@ -629,6 +634,16 @@ class App extends React.Component<AppProps, AppState> {
   );
 
   private excalidrawContainerRef = React.createRef<HTMLDivElement>();
+  private renderedHostElementIds = new Set<ExcalidrawElement["id"]>();
+
+  private isHostSurfaceElement = (element: ExcalidrawElement) =>
+    isIframeLikeElement(element) || this.renderedHostElementIds.has(element.id);
+
+  private syncOwnerDocumentLanguage = () => {
+    const language = getLanguage();
+    this.ownerDocument.documentElement.lang = language.code;
+    this.ownerDocument.documentElement.dir = language.rtl ? "rtl" : "ltr";
+  };
 
   public get ownerDocument(): Document {
     return (
@@ -813,6 +828,7 @@ class App extends React.Component<AppProps, AppState> {
 
   constructor(props: AppProps) {
     super(props);
+    this.syncOwnerDocumentLanguage();
     const defaultAppState = getDefaultAppState();
     const {
       viewModeEnabled = false,
@@ -911,6 +927,31 @@ class App extends React.Component<AppProps, AppState> {
   ): boolean {
     return props.interaction !== false && typeof props.interaction !== "object";
   }
+
+  public isElementTextEditable = (element: ExcalidrawElement): boolean => {
+    if (!isNonDeletedElement(element)) {
+      return false;
+    }
+
+    const isEditable = this.props.isElementTextEditable;
+    if (isEditable && !isEditable(element)) {
+      return false;
+    }
+
+    if (isTextElement(element) && element.containerId) {
+      const container = getContainerElement(
+        element,
+        this.scene.getNonDeletedElementsMap(),
+      );
+      return (
+        !container ||
+        !isEditable ||
+        (isNonDeletedElement(container) && isEditable(container))
+      );
+    }
+
+    return true;
+  };
 
   /**
    * Whether element links render their link icon and are clickable.
@@ -2100,6 +2141,89 @@ class App extends React.Component<AppProps, AppState> {
     );
   }
 
+  private renderHostElements() {
+    this.renderedHostElementIds.clear();
+    const renderHostElement = this.props.renderHostElement;
+    if (!renderHostElement) {
+      return null;
+    }
+
+    const scale = this.state.zoom.value;
+    const normalizedWidth = this.state.width;
+    const normalizedHeight = this.state.height;
+    const elementsMap = this.scene.getNonDeletedElementsMap();
+
+    return (
+      <>
+        {this.scene
+          .getNonDeletedElements()
+          .filter((element) => !element.link && !isIframeLikeElement(element))
+          .map((element) => {
+            const { x, y } = sceneCoordsToViewportCoords(
+              { sceneX: element.x, sceneY: element.y },
+              this.state,
+            );
+
+            if (
+              !isElementInViewport(
+                element,
+                normalizedWidth,
+                normalizedHeight,
+                this.state,
+                elementsMap,
+              )
+            ) {
+              return null;
+            }
+
+            const content = renderHostElement(element, this.state);
+            if (!content) {
+              return null;
+            }
+            this.renderedHostElementIds.add(element.id);
+
+            return (
+              <div
+                key={element.id}
+                className="excalidraw__host-element-container"
+                style={{
+                  transform: `translate(${x - this.state.offsetLeft}px, ${
+                    y - this.state.offsetTop
+                  }px) scale(${scale})`,
+                  opacity: getRenderOpacity(
+                    element,
+                    getContainingFrame(element, elementsMap),
+                    this.elementsPendingErasure,
+                    null,
+                    this.state.openDialog?.name === "elementLinkSelector" &&
+                      !this.state.selectedElementIds[element.id] &&
+                      !this.state.hoveredElementIds[element.id]
+                      ? DEFAULT_REDUCED_GLOBAL_ALPHA
+                      : 1,
+                  ),
+                }}
+              >
+                <div
+                  className="excalidraw__host-element-container__inner"
+                  style={{
+                    width: `${element.width}px`,
+                    height: `${element.height}px`,
+                    transform: `rotate(${element.angle}rad)${
+                      isImageElement(element)
+                        ? ` scale(${element.scale[0]}, ${element.scale[1]})`
+                        : ""
+                    }`,
+                  }}
+                >
+                  {content}
+                </div>
+              </div>
+            );
+          })}
+      </>
+    );
+  }
+
   private getFrameNameDOMId = (frameElement: ExcalidrawElement) => {
     return `${this.id}-frame-name-${frameElement.id}`;
   };
@@ -2332,7 +2456,13 @@ class App extends React.Component<AppProps, AppState> {
 
   public render() {
     const selectedElements = this.scene.getSelectedElements(this.state);
-    const { renderTopRightUI, renderTopLeftUI, renderCustomStats } = this.props;
+    const language = getLanguage();
+    const {
+      renderTopRightUI,
+      renderTopLeftUI,
+      hostToolbarItems,
+      renderCustomStats,
+    } = this.props;
 
     const {
       elementsMap: renderableElementsMap,
@@ -2384,6 +2514,8 @@ class App extends React.Component<AppProps, AppState> {
     return (
       <div
         translate="no"
+        lang={language.code}
+        dir={language.rtl ? "rtl" : "ltr"}
         className={clsx(
           "excalidraw excalidraw-container notranslate",
           this.props.className,
@@ -2473,6 +2605,7 @@ class App extends React.Component<AppProps, AppState> {
                             langCode={getLanguage().code}
                             renderTopLeftUI={renderTopLeftUI}
                             renderTopRightUI={renderTopRightUI}
+                            hostToolbarItems={hostToolbarItems}
                             renderCustomStats={renderCustomStats}
                             showExitZenModeBtn={
                               typeof this.props?.zenModeEnabled ===
@@ -2722,6 +2855,7 @@ class App extends React.Component<AppProps, AppState> {
                               <ConvertElementTypePopup app={this} />
                             )}
                         </ExcalidrawActionManagerContext.Provider>
+                        {this.renderHostElements()}
                         {this.renderEmbeddables()}
                       </ExcalidrawElementsContext.Provider>
                     </ExcalidrawAppStateContext.Provider>
@@ -3754,6 +3888,7 @@ class App extends React.Component<AppProps, AppState> {
 
   public async componentDidMount() {
     this.unmounted = false;
+    this.syncOwnerDocumentLanguage();
     this.api = this.createExcalidrawAPI();
 
     this.excalidrawContainerValue.container =
@@ -3851,6 +3986,13 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   public componentWillUnmount() {
+    // The text editor owns window listeners and a Scene callback. Dispose it
+    // while the current Scene still owns that callback, but skip its React
+    // state updates because this lifecycle is already unmounting the App.
+    this.unmounted = true;
+    this.textWysiwygSubmitHandler?.();
+    this.textWysiwygSubmitHandler = null;
+
     // we're recreating the api object reference so that the
     // <ExcalidrawAPIContext.Provider/> picks up on it
     this.api = { ...this.api, isDestroyed: true };
@@ -3884,7 +4026,6 @@ class App extends React.Component<AppProps, AppState> {
     this.files = {};
     this.imageCache.clear();
     this.resizeObserver?.disconnect();
-    this.unmounted = true;
     this.viewport.destroy();
     this.removeEventListeners();
     this.library.destroy();
@@ -3903,6 +4044,7 @@ class App extends React.Component<AppProps, AppState> {
     selectGroupsForSelectedElements.clearCache();
     touchTimeout = 0;
     this.ownerDocument.documentElement.style.overscrollBehaviorX = "";
+    this.renderedHostElementIds.clear();
   }
 
   private onResize = withBatchedUpdates(() => {
@@ -4194,6 +4336,7 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   componentDidUpdate(prevProps: AppProps, prevState: AppState) {
+    this.syncOwnerDocumentLanguage();
     // must be updated *before* state change listeners are triggered below
     if (!this._initialized && !this.state.isLoading) {
       this._initialized = true;
@@ -5446,6 +5589,15 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      const nativeKeyboardEvent =
+        "nativeEvent" in event ? event.nativeEvent : event;
+      if (
+        nativeKeyboardEvent.isComposing ||
+        nativeKeyboardEvent.keyCode === 229
+      ) {
+        return;
+      }
+
       // normalize `event.key` when CapsLock is pressed #2372
 
       if (
@@ -5484,15 +5636,6 @@ class App extends React.Component<AppProps, AppState> {
           this.scene.getNonDeletedElementsMap(),
           this.state,
         );
-
-        if (
-          selectedElements.length === 1 &&
-          isImageElement(selectedElements[0]) &&
-          event.key === KEYS.ENTER
-        ) {
-          this.startImageCropping(selectedElements[0]);
-          return;
-        }
 
         // Shape switching
         if (event.key === KEYS.ESCAPE) {
@@ -5623,6 +5766,59 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      // Native action shortcuts take precedence over host commands. Host
+      // commands run only after the shared action registry declines the event.
+      if (
+        !this.state.openDialog &&
+        !this.state.contextMenu &&
+        !isInteractive(event.target)
+      ) {
+        if (event.key === KEYS.ESCAPE) {
+          const activeHostToolbarItem = findActiveHostToolbarItem(
+            this.props.hostToolbarItems,
+          );
+          if (activeHostToolbarItem?.onCancel) {
+            event.preventDefault();
+            event.stopPropagation();
+            activeHostToolbarItem.onCancel();
+            return;
+          }
+        }
+        const hostToolbarItem = findHostToolbarItemByShortcut(
+          this.props.hostToolbarItems,
+          event as KeyboardEvent,
+        );
+        if (hostToolbarItem) {
+          event.preventDefault();
+          event.stopPropagation();
+          hostToolbarItem.onSelect();
+          return;
+        }
+      }
+
+      if (
+        event.key === KEYS.ENTER &&
+        !this.state.openDialog &&
+        !this.state.contextMenu &&
+        !isInteractive(event.target)
+      ) {
+        const selectedElements = this.scene.getSelectedElements(this.state);
+        if (
+          selectedElements.length === 1 &&
+          this.props.onElementActivate?.(selectedElements[0])
+        ) {
+          event.preventDefault();
+          return;
+        }
+        if (
+          selectedElements.length === 1 &&
+          isImageElement(selectedElements[0])
+        ) {
+          this.startImageCropping(selectedElements[0]);
+          return;
+        }
+      }
+
       // view mode hardcoded from upstream -> disable tool switching for now
       const shouldPreventToolSwitching = this.props.viewModeEnabled === true;
 
@@ -5637,14 +5833,11 @@ class App extends React.Component<AppProps, AppState> {
 
       if (
         !shouldPreventToolSwitching &&
-        !event.ctrlKey &&
-        !event.altKey &&
-        !event.metaKey &&
         !this.state.newElement &&
         !this.state.selectionElement &&
         !this.state.selectedElementsAreBeingDragged
       ) {
-        const shape = findShapeByKey(event.key, this, event.shiftKey);
+        const shape = findShapeByKey(event.key, this, event);
 
         if (this.state.viewModeEnabled && !oneOf(shape, ["laser", "hand"])) {
           return;
@@ -5694,10 +5887,23 @@ class App extends React.Component<AppProps, AppState> {
             this.setActiveTool({ type: shape }, { toggle: true });
           }
 
+          if (
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.shiftKey
+          ) {
+            event.preventDefault();
+          }
           event.stopPropagation();
 
           return;
-        } else if (event.key === KEYS.Q) {
+        } else if (
+          event.key === KEYS.Q &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
           this.toggleLock("keyboard");
           event.stopPropagation();
           return;
@@ -5816,8 +6022,9 @@ class App extends React.Component<AppProps, AppState> {
               }
             }
           } else if (
-            isTextElement(selectedElement) ||
-            isValidTextContainer(selectedElement)
+            (isTextElement(selectedElement) ||
+              isValidTextContainer(selectedElement)) &&
+            this.isElementTextEditable(selectedElement)
           ) {
             let container;
             if (!isTextElement(selectedElement)) {
@@ -6359,9 +6566,31 @@ class App extends React.Component<AppProps, AppState> {
       }),
       onSubmit: withBatchedUpdates(({ viaKeyboard, nextOriginalText }) => {
         this.textWysiwygSubmitHandler = null;
-
         const isDeleted = !nextOriginalText.trim();
         updateElement(nextOriginalText, isDeleted);
+
+        if (isDeleted) {
+          fixBindingsAfterDeletion(this.scene.getNonDeletedElements(), [
+            element,
+          ]);
+        }
+
+        if (!isDeleted || isExistingElement) {
+          this.store.scheduleCapture();
+        }
+
+        if (this.unmounted) {
+          const elements = this.scene.getElementsIncludingDeleted();
+          this.store.commit(
+            this.scene.getElementsMapIncludingDeleted(),
+            this.state,
+          );
+          if (!this.state.isLoading) {
+            this.props.onChange?.(elements, this.state, this.files);
+            this.onChangeEmitter.trigger(elements, this.state, this.files);
+          }
+          return;
+        }
 
         // keyboard-submit keeps focus on the edited object. For bound text, keep
         // the container selected even if the text becomes empty and is deleted.
@@ -6390,16 +6619,6 @@ class App extends React.Component<AppProps, AppState> {
               ),
             }));
           });
-        }
-
-        if (isDeleted) {
-          fixBindingsAfterDeletion(this.scene.getNonDeletedElements(), [
-            element,
-          ]);
-        }
-
-        if (!isDeleted || isExistingElement) {
-          this.store.scheduleCapture();
         }
 
         flushSync(() => {
@@ -6456,17 +6675,22 @@ class App extends React.Component<AppProps, AppState> {
     const selectedElement = selectedElements[0]!;
 
     if (isTextElement(selectedElement)) {
-      return selectedElement;
+      return this.isElementTextEditable(selectedElement)
+        ? selectedElement
+        : null;
     }
 
-    if (!container) {
+    if (!container || !this.isElementTextEditable(selectedElement)) {
       return null;
     }
 
-    return getBoundTextElement(
+    const textElement = getBoundTextElement(
       selectedElement,
       this.scene.getNonDeletedElementsMap(),
     ) as NonDeleted<ExcalidrawTextElement> | null;
+    return textElement && this.isElementTextEditable(textElement)
+      ? textElement
+      : null;
   }
 
   private getSelectedTextEditingContainerAtPosition(
@@ -6484,6 +6708,10 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     const selectedElement = selectedElements[0]!;
+
+    if (!this.isElementTextEditable(selectedElement)) {
+      return undefined;
+    }
 
     if (isTextElement(selectedElement)) {
       return null;
@@ -6513,7 +6741,12 @@ class App extends React.Component<AppProps, AppState> {
     const element = this.getElementAtPosition(x, y, {
       includeBoundTextElement: true,
     });
-    if (element && isTextElement(element) && !element.isDeleted) {
+    if (
+      element &&
+      isTextElement(element) &&
+      !element.isDeleted &&
+      this.isElementTextEditable(element)
+    ) {
       return element;
     }
     return null;
@@ -6640,7 +6873,10 @@ class App extends React.Component<AppProps, AppState> {
       includeLockedElements?: boolean;
     },
   ): NonDeleted<ExcalidrawElement>[] {
-    const iframeLikes: Ordered<NonDeleted<ExcalidrawIframeLikeElement>>[] = [];
+    const hostSurfaceElements: Ordered<NonDeletedExcalidrawElement>[] = [];
+    const nativeEmbedElements: Ordered<
+      NonDeleted<ExcalidrawIframeLikeElement>
+    >[] = [];
 
     const elementsMap = this.scene.getNonDeletedElementsMap();
 
@@ -6666,9 +6902,9 @@ class App extends React.Component<AppProps, AppState> {
         return containingFrame &&
           this.state.frameRendering.enabled &&
           this.state.frameRendering.clip &&
-          // iframe-like elements are rendered as DOM overlays and are not
-          // visually clipped by their containing frames
-          !isIframeLikeElement(element)
+          // DOM-backed host surfaces are not visually clipped by their
+          // containing frames, just like native embeds.
+          !this.isHostSurfaceElement(element)
           ? isCursorInFrame(
               { x, y },
               containingFrame as NonDeleted<ExcalidrawFrameLikeElement>,
@@ -6679,15 +6915,22 @@ class App extends React.Component<AppProps, AppState> {
       .filter((el) => {
         // The parameter elements comes ordered from lower z-index to higher.
         // We want to preserve that order on the returned array.
-        // Exception being embeddables which should be on top of everything else in
-        // terms of hit testing.
+        // DOM-backed host surfaces should be on top of everything else in terms
+        // of hit testing, just like native embeddables.
         if (isIframeLikeElement(el)) {
-          iframeLikes.push(el);
+          nativeEmbedElements.push(el);
+          return false;
+        }
+        if (this.renderedHostElementIds.has(el.id)) {
+          hostSurfaceElements.push(el);
           return false;
         }
         return true;
       })
-      .concat(iframeLikes) as NonDeleted<ExcalidrawElement>[];
+      .concat(
+        hostSurfaceElements,
+        nativeEmbedElements,
+      ) as NonDeleted<ExcalidrawElement>[];
 
     return elements;
   }
@@ -6753,7 +6996,8 @@ class App extends React.Component<AppProps, AppState> {
     const elements = this.scene.getNonDeletedElements();
     const selectedElements = this.scene.getSelectedElements(this.state);
     if (selectedElements.length === 1) {
-      return isTextBindableContainer(selectedElements[0], false)
+      return isTextBindableContainer(selectedElements[0], false) &&
+        this.isElementTextEditable(selectedElements[0])
         ? selectedElements[0]
         : null;
     }
@@ -6790,7 +7034,10 @@ class App extends React.Component<AppProps, AppState> {
       }
     }
 
-    return isTextBindableContainer(hitElement, false) ? hitElement : null;
+    return isTextBindableContainer(hitElement, false) &&
+      this.isElementTextEditable(hitElement)
+      ? hitElement
+      : null;
   }
 
   /**
@@ -6834,6 +7081,10 @@ class App extends React.Component<AppProps, AppState> {
      */
     arrowEndpoint?: ArrowEndpoint | null;
   }) => {
+    if (container && !this.isElementTextEditable(container)) {
+      return;
+    }
+
     let shouldBindToContainer = false;
 
     // Resolved here rather than by the caller so that the stroke width the
@@ -6882,6 +7133,13 @@ class App extends React.Component<AppProps, AppState> {
       ? null
       : this.getSelectedTextElement(container) ||
         this.getTextElementAtPosition(sceneX, sceneY);
+
+    if (
+      existingTextElement &&
+      !this.isElementTextEditable(existingTextElement)
+    ) {
+      return;
+    }
 
     const fontFamily =
       existingTextElement?.fontFamily || this.state.currentItemFontFamily;
@@ -7123,6 +7381,11 @@ class App extends React.Component<AppProps, AppState> {
       this.state,
     );
 
+    const hitElement = this.getElementAtPosition(sceneX, sceneY);
+    if (hitElement && this.props.onElementActivate?.(hitElement)) {
+      return;
+    }
+
     if (selectedElements.length === 1 && isLinearElement(selectedElements[0])) {
       const selectedLinearElement: ExcalidrawLinearElement =
         selectedElements[0];
@@ -7259,6 +7522,10 @@ class App extends React.Component<AppProps, AppState> {
       // shouldn't edit/create text when inside line editor (often false positive)
 
       if (!this.state.selectedLinearElement?.isEditing) {
+        if (hitElement && !this.isElementTextEditable(hitElement)) {
+          return;
+        }
+
         const container =
           // skip binding to container on dblclick when holding ctrl
           !event[KEYS.CTRL_OR_CMD] &&
@@ -9865,6 +10132,10 @@ class App extends React.Component<AppProps, AppState> {
       const element = this.getElementAtPosition(sceneX, sceneY, {
         includeBoundTextElement: true,
       });
+
+      if (element && !this.isElementTextEditable(element)) {
+        return;
+      }
 
       // FIXME
       let container = this.getTextBindableContainerAtPosition(sceneX, sceneY);
@@ -13106,6 +13377,10 @@ class App extends React.Component<AppProps, AppState> {
       MIME_TYPES.excalidrawlib,
     );
     if (excalidrawLibrary_ids || excalidrawLibrary_data) {
+      if (this.props.UIOptions.library === false) {
+        return;
+      }
+
       try {
         let libraryItems: LibraryItems | null = null;
         if (excalidrawLibrary_ids) {
@@ -13238,6 +13513,10 @@ class App extends React.Component<AppProps, AppState> {
           captureUpdate: CaptureUpdateAction.IMMEDIATELY,
         });
       } else if (ret.type === MIME_TYPES.excalidrawlib) {
+        if (this.props.UIOptions.library === false) {
+          return;
+        }
+
         await this.library
           .updateLibrary({
             libraryItems: file,
@@ -14024,11 +14303,10 @@ class App extends React.Component<AppProps, AppState> {
   watchState = () => {};
 
   private async updateLanguage() {
-    const currentLang =
-      languages.find((lang) => lang.code === this.props.langCode) ||
-      defaultLang;
-    await setLanguage(currentLang);
-    this.setAppState({});
+    const applied = await setLanguage(resolveLanguage(this.props.langCode));
+    if (applied && !this.unmounted) {
+      this.setAppState({});
+    }
   }
 }
 

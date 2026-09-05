@@ -2,6 +2,8 @@ import { isDarwin } from "@excalidraw/common";
 
 import { t } from "./i18n";
 
+import type { EditorShortcut } from "./types";
+
 export const getShortcutKey = (shortcut: string): string =>
   shortcut
     .replace(
@@ -17,3 +19,39 @@ export const getShortcutKey = (shortcut: string): string =>
     .replace(/\b(Esc(?:ape)?)\b/i, t("keys.escape"))
     .replace(/\b(Space(?:bar)?)\b/i, t("keys.spacebar"))
     .replace(/\b(Del(?:ete)?)\b/i, t("keys.delete"));
+
+type ShortcutKeyboardEvent = Pick<
+  KeyboardEvent,
+  "key" | "shiftKey" | "altKey" | "ctrlKey" | "metaKey"
+>;
+
+export const shortcutMatches = (
+  shortcut: EditorShortcut,
+  event: ShortcutKeyboardEvent,
+) =>
+  event.key.toLowerCase() === shortcut.key.toLowerCase() &&
+  event.shiftKey === Boolean(shortcut.shiftKey) &&
+  event.altKey === Boolean(shortcut.altKey) &&
+  (shortcut.ctrlOrCmd
+    ? event.ctrlKey || event.metaKey
+    : !event.ctrlKey && !event.metaKey);
+
+export const getShortcutLabel = (shortcut: EditorShortcut) => {
+  const modifiers = [
+    shortcut.ctrlOrCmd ? getShortcutKey("CtrlOrCmd") : null,
+    shortcut.altKey ? getShortcutKey("Alt") : null,
+    shortcut.shiftKey ? getShortcutKey("Shift") : null,
+  ].filter(Boolean);
+  return [...modifiers, shortcut.key.toUpperCase()].join("+");
+};
+
+export const getAriaShortcutLabels = (shortcut: EditorShortcut) => {
+  const key =
+    shortcut.key.length === 1 ? shortcut.key.toUpperCase() : shortcut.key;
+  const suffix = `${shortcut.altKey ? "Alt+" : ""}${
+    shortcut.shiftKey ? "Shift+" : ""
+  }${key}`;
+  return shortcut.ctrlOrCmd
+    ? [`Control+${suffix}`, `Meta+${suffix}`]
+    : [suffix];
+};

@@ -6,7 +6,7 @@ import { isShallowEqual } from "@excalidraw/common";
 
 import { t } from "../i18n";
 
-import { useExcalidrawActionManager } from "./App";
+import { useAppProps, useExcalidrawActionManager } from "./App";
 import { chevronDownIcon } from "./icons";
 import { Island } from "./Island";
 import { QuickSearch } from "./QuickSearch";
@@ -16,13 +16,14 @@ import { Tooltip } from "./Tooltip";
 import "./UserList.scss";
 
 import type { ActionManager } from "../actions/manager";
-import type { Collaborator, SocketId } from "../types";
+import type { Collaborator, ExcalidrawProps, SocketId } from "../types";
 
 export type GoToCollaboratorComponentProps = {
   socketId: SocketId;
   collaborator: Collaborator;
   withName: boolean;
   isBeingFollowed: boolean;
+  renderCollaboratorAvatar?: ExcalidrawProps["renderCollaboratorAvatar"];
 };
 
 const DEFAULT_MAX_AVATARS = 4;
@@ -58,6 +59,7 @@ const renderCollaborator = ({
   withName = false,
   shouldWrapWithTooltip = false,
   isBeingFollowed,
+  renderCollaboratorAvatar,
 }: {
   actionManager: ActionManager;
   collaborator: Collaborator;
@@ -65,12 +67,14 @@ const renderCollaborator = ({
   withName?: boolean;
   shouldWrapWithTooltip?: boolean;
   isBeingFollowed: boolean;
+  renderCollaboratorAvatar?: ExcalidrawProps["renderCollaboratorAvatar"];
 }) => {
   const data: GoToCollaboratorComponentProps = {
     socketId,
     collaborator,
     withName,
     isBeingFollowed,
+    renderCollaboratorAvatar,
   };
   const avatarJSX = actionManager.renderAction("goToCollaborator", data);
 
@@ -127,6 +131,7 @@ export const UserList = React.memo(
     currentUserControls,
   }: UserListProps) => {
     const actionManager = useExcalidrawActionManager();
+    const { renderCollaboratorAvatar } = useAppProps();
 
     const resolvedCurrentUserControls =
       typeof currentUserControls === "function"
@@ -212,6 +217,7 @@ export const UserList = React.memo(
         socketId: collaborator.socketId,
         shouldWrapWithTooltip: true,
         isBeingFollowed: collaborator.socketId === userToFollow,
+        renderCollaboratorAvatar,
       });
 
       if (!collaborator.isCurrentUser) {
@@ -262,6 +268,7 @@ export const UserList = React.memo(
                           socketId: c.socketId,
                           withName: true,
                           isBeingFollowed: c.socketId === userToFollow,
+                          renderCollaboratorAvatar,
                         }),
                       ),
                     ]
@@ -301,6 +308,7 @@ export const UserList = React.memo(
               socketId: collaborator.socketId,
               shouldWrapWithTooltip: true,
               isBeingFollowed: collaborator.socketId === userToFollow,
+              renderCollaboratorAvatar,
             }),
           )}
         </div>

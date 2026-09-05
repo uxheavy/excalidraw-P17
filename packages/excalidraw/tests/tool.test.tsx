@@ -8,8 +8,18 @@ import {
 } from "@excalidraw/common";
 
 import { Excalidraw } from "../index";
+import { getShortcutKey } from "../shortcut";
 
-import { findShapeByKey } from "../components/Tools";
+import {
+  findShapeByKey,
+  getToolAriaShortcut,
+  getToolShortcutKeys,
+} from "../components/Tools";
+import {
+  findActiveHostToolbarItem,
+  findHostToolbarItemByShortcut,
+  getHostToolbarShortcutCollisions,
+} from "../components/HostToolbar";
 
 import { API } from "./helpers/api";
 import { Pointer } from "./helpers/ui";
@@ -111,17 +121,200 @@ describe("findShapeByKey()", () => {
   it("matches shift-bound tools only when shift is held", () => {
     const app = appWithPreferredTool("selection");
 
-    expect(findShapeByKey("X", app, true)).toBe("autoshape");
-    expect(findShapeByKey("x", app, true)).toBe("autoshape");
+    expect(
+      findShapeByKey(
+        "X",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
+    expect(
+      findShapeByKey(
+        "x",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
     // Pressing "X" while CapsLock is active (no shift) stays freedraw
-    expect(findShapeByKey("X", app, false)).toBe("freedraw");
+    expect(findShapeByKey("X", app, new KeyboardEvent("keydown"))).toBe(
+      "freedraw",
+    );
   });
 
   it("does not match plain-bound tools when shift is held", () => {
     const app = appWithPreferredTool("selection");
 
-    expect(findShapeByKey("R", app, true)).toBeNull();
-    expect(findShapeByKey("V", app, true)).toBeNull();
+    expect(
+      findShapeByKey(
+        "R",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findShapeByKey(
+        "V",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBeNull();
+  });
+
+  it("uses host tool shortcut overrides without changing the scene", () => {
+    const app = {
+      ...appWithPreferredTool("selection"),
+      props: {
+        toolShortcutOverrides: {
+          diamond: [{ key: "3" }],
+          freedraw: ["d", "b", "x", "p"].map((key) => ({ key })),
+          autoshape: [{ key: "x", shiftKey: true }],
+          bucketfill: [],
+        },
+      },
+    } as unknown as AppClassProperties;
+
+    expect(findShapeByKey("d", app)).toBe("freedraw");
+    expect(findShapeByKey("b", app)).toBe("freedraw");
+    expect(findShapeByKey("3", app)).toBe("diamond");
+    expect(
+      findShapeByKey(
+        "x",
+        app,
+        new KeyboardEvent("keydown", { shiftKey: true }),
+      ),
+    ).toBe("autoshape");
+    expect(findShapeByKey("b", app)).not.toBe("bucketfill");
+  });
+
+  it("matches and displays modifier-bearing tool overrides", () => {
+    const app = {
+      ...appWithPreferredTool("selection"),
+      props: {
+        toolShortcutOverrides: {
+          rectangle: [{ key: "r", ctrlOrCmd: true, altKey: true }],
+        },
+      },
+    } as unknown as AppClassProperties;
+
+    expect(
+      findShapeByKey(
+        "r",
+        app,
+        new KeyboardEvent("keydown", { key: "r", metaKey: true, altKey: true }),
+      ),
+    ).toBe("rectangle");
+    expect(
+      findShapeByKey(
+        "r",
+        app,
+        new KeyboardEvent("keydown", { key: "r", altKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      getToolShortcutKeys("rectangle", app.props.toolShortcutOverrides),
+    ).toEqual([`${getShortcutKey("CtrlOrCmd")}+${getShortcutKey("Alt")}+R`]);
+    expect(
+      getToolAriaShortcut("rectangle", app.props.toolShortcutOverrides),
+    ).toBe("Control+Alt+R Meta+Alt+R");
+
+    expect(
+      getToolAriaShortcut("rectangle", {
+        rectangle: [{ key: "ArrowLeft", altKey: true }],
+      }),
+    ).toBe("Alt+ArrowLeft");
+  });
+
+  it("resolves host shortcuts while ignoring disabled commands", () => {
+    const onSelect = vi.fn();
+    const disabled = vi.fn();
+    const items = [
+      {
+        id: "disabled",
+        label: "Disabled",
+        disabled: true,
+        shortcuts: [{ key: "w" }],
+        onSelect: disabled,
+      },
+      {
+        id: "work-item",
+        label: "Work item",
+        shortcuts: [{ key: "w" }],
+        onSelect,
+      },
+      {
+        id: "disabled-menu",
+        type: "menu",
+        label: "Disabled menu",
+        disabled: true,
+        items: [
+          {
+            id: "disabled-menu-item",
+            label: "Disabled menu item",
+            shortcuts: [{ key: "m" }],
+            onSelect: vi.fn(),
+          },
+        ],
+      },
+    ] as const;
+
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W" }),
+      )?.id,
+    ).toBe("work-item");
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W", shiftKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "W", metaKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "M" }),
+      ),
+    ).toBeNull();
+  });
+
+  it("selects the checked host command that can cancel", () => {
+    const checked = {
+      id: "checked",
+      label: "Checked",
+      checked: true,
+      onSelect: vi.fn(),
+    } as const;
+    const cancellable = {
+      id: "cancellable",
+      label: "Cancellable",
+      checked: true,
+      onSelect: vi.fn(),
+      onCancel: vi.fn(),
+    } as const;
+
+    expect(findActiveHostToolbarItem([checked, cancellable])).toBe(cancellable);
+  });
+
+  it("reports collisions across host and resolved native shortcuts", () => {
+    expect(
+      getHostToolbarShortcutCollisions(
+        [
+          {
+            id: "work-item",
+            label: "Work item",
+            shortcuts: [{ key: "w" }],
+            onSelect: () => {},
+          },
+        ],
+        { rectangle: [{ key: "w" }] },
+      ),
+    ).toEqual(["w (tool:rectangle, host:work-item)"]);
   });
 });
 
@@ -181,6 +374,18 @@ describe("props.activeTool (forced tool)", () => {
     GlobalTestState.renderResult.rerender(
       <Excalidraw handleKeyboardGlobally={true} />,
     );
+    expect(h.state.activeTool.locked).toBe(true);
+  });
+
+  it("does not toggle the tool lock for modified Q", async () => {
+    await render(<Excalidraw handleKeyboardGlobally={true} />);
+
+    for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const) {
+      fireEvent.keyDown(document, { key: "q", [modifier]: true });
+      expect(h.state.activeTool.locked).toBe(false);
+    }
+
+    fireEvent.keyDown(document, { key: "q" });
     expect(h.state.activeTool.locked).toBe(true);
   });
 

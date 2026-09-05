@@ -1,8 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
 
-import { KEYS } from "@excalidraw/common";
-
 import { useTunnels } from "../context/tunnels";
 import { t } from "../i18n";
 
@@ -42,6 +40,7 @@ import {
   SelectionToolPopover,
   TextToolButton,
 } from "./Tools";
+import { HostToolbar } from "./HostToolbar";
 
 import type {
   AppClassProperties,
@@ -116,7 +115,10 @@ const ExtraToolsDropdown = ({
         <DropdownMenu.Item
           onSelect={() => app.setActiveTool({ type: "frame" })}
           icon={frameToolIcon}
-          shortcut={KEYS.F.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("frame", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           data-testid="toolbar-frame"
           selected={frameToolSelected}
           disabled={isToolButtonDisabled(app, "frame")}
@@ -135,7 +137,10 @@ const ExtraToolsDropdown = ({
         <DropdownMenu.Item
           onSelect={() => app.setActiveTool({ type: "autoshape" })}
           icon={drawShapeToolIcon}
-          shortcut={getToolShortcut("autoshape")}
+          shortcut={
+            getToolShortcut("autoshape", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           data-testid="toolbar-autoshape"
           selected={drawShapeToolSelected}
           disabled={isToolButtonDisabled(app, "autoshape")}
@@ -147,7 +152,10 @@ const ExtraToolsDropdown = ({
           icon={laserPointerToolIcon}
           data-testid="toolbar-laser"
           selected={laserToolSelected}
-          shortcut={KEYS.K.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("laser", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "laser")}
         >
           {t("toolBar.laser")}
@@ -157,7 +165,10 @@ const ExtraToolsDropdown = ({
           icon={bucketFillIcon}
           data-testid="toolbar-bucketfill"
           selected={bucketFillToolSelected}
-          shortcut={KEYS.B.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("bucketfill", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           disabled={isToolButtonDisabled(app, "bucketfill")}
         >
           {t("toolBar.bucketfill")}
@@ -209,6 +220,7 @@ export const Toolbar = ({
   onPenModeToggle,
   onLockToggle,
   heading,
+  hostToolbarItems,
 }: {
   app: AppClassProperties;
   appState: UIAppState;
@@ -217,6 +229,7 @@ export const Toolbar = ({
   onPenModeToggle: AppClassProperties["togglePenMode"];
   onLockToggle: () => void;
   heading: React.ReactNode;
+  hostToolbarItems?: AppProps["hostToolbarItems"];
 }) => {
   const editorInterface = useEditorInterface();
   const isCompactStylesPanel = useStylesPanelMode() === "compact";
@@ -293,6 +306,11 @@ export const Toolbar = ({
         <div
           className="App-toolbar__divider"
           style={{ marginLeft: "0.25rem" }}
+        />
+
+        <HostToolbar
+          items={hostToolbarItems}
+          toolShortcutOverrides={app.props.toolShortcutOverrides}
         />
 
         <ExtraToolsDropdown

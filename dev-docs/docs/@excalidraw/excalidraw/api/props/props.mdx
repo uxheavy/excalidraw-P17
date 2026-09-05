@@ -15,6 +15,8 @@ All `props` are _optional_.
 | [`onLibraryChange`](#onlibrarychange) | `function` | \_ | The callback if supplied is triggered when the library is updated and receives the library items. |
 | [`generateLinkForSelection`](#generatelinkforselection) | `function` | \_ | Allows you to override `url` generation when linking to Excalidraw elements. |
 | [`onLinkOpen`](#onlinkopen) | `function` | \_ | The callback if supplied is triggered when any link is opened. |
+| [`onElementActivate`](#onelementactivate) | `function` | \_ | Called when a native element is activated; return `true` to consume the activation. |
+| [`isElementTextEditable`](#iselementtexteditable) | `function` | `true` | Controls whether a native element may enter text editing. |
 | [`langCode`](#langcode) | `string` | `en` | Language code string to be used in Excalidraw |
 | [`renderTopRightUI`](/docs/@excalidraw/excalidraw/api/props/render-props#rendertoprightui) | `function` | \_ | Render function that renders custom UI in top right corner |
 | [`renderCustomStats`](/docs/@excalidraw/excalidraw/api/props/render-props#rendercustomstats) | `function` | \_ | Render function that can be used to render custom stats on the stats dialog. |
@@ -31,7 +33,8 @@ All `props` are _optional_.
 | [`generateIdForFile`](#generateidforfile) | `function` | \_ | Allows you to override `id` generation for files added on canvas |
 | [`validateEmbeddable`](#validateembeddable) | `string[]` \| `boolean` \| `RegExp` \| `RegExp[]` \| <code>((link: string) => boolean &#124; undefined)</code> | \_ | use for custom src url validation |
 | [`renderEmbeddable`](/docs/@excalidraw/excalidraw/api/props/render-props#renderEmbeddable) | `function` | \_ | Render function that can override the built-in `<iframe>` |
-| [`renderScrollbars`] | `boolean`| | `false` | Indicates whether scrollbars will be shown
+| [`renderHostElement`](/docs/@excalidraw/excalidraw/api/props/render-props#renderHostElement) | `function` | \_ | Render host-owned content for non-URL native elements |
+| [`renderScrollbars`] | `boolean` | `false` | Indicates whether scrollbars will be shown |
 
 ### Storing custom data on Excalidraw elements
 
@@ -188,6 +191,26 @@ const onLinkOpen: ExcalidrawProps["onLinkOpen"] = useCallback(
   [history],
 );
 ```
+
+### onElementActivate
+
+This callback is invoked when a native element is activated by pointer or keyboard input.
+
+```ts
+(element: NonDeletedExcalidrawElement) => boolean;
+```
+
+Return `true` to consume the activation and prevent Excalidraw's default native activation behavior. Return `false`, or omit the callback, to preserve the default behavior.
+
+### isElementTextEditable
+
+This callback controls whether a native element may enter text editing.
+
+```ts
+(element: NonDeletedExcalidrawElement) => boolean;
+```
+
+When omitted, the callback defaults to `true` for every element. Excalidraw still applies its usual structural checks for whether the element supports text editing.
 
 ### langCode
 

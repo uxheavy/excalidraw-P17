@@ -18,7 +18,7 @@ import { Excalidraw } from "../index";
 
 import { API } from "./helpers/api";
 import { UI } from "./helpers/ui";
-import { fireEvent, render, waitFor } from "./test-utils";
+import { GlobalTestState, fireEvent, render, waitFor } from "./test-utils";
 
 import type { LibraryItem, LibraryItems } from "../types";
 
@@ -243,6 +243,49 @@ describe("library", () => {
 });
 
 describe("library menu", () => {
+  it("should not import library data when library is disabled", async () => {
+    const { container } = await render(
+      <Excalidraw UIOptions={{ library: false }} />,
+    );
+
+    expect(container.querySelector(".default-sidebar-trigger")).toBeNull();
+
+    const element = API.createElement({
+      type: "rectangle",
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+    });
+    API.setElements([element]);
+    API.setSelectedElements([element]);
+    fireEvent.contextMenu(GlobalTestState.interactiveCanvas, {
+      button: 2,
+      clientX: 1,
+      clientY: 1,
+    });
+    expect(
+      queryByTestId(document.querySelector(".context-menu")!, "addToLibrary"),
+    ).toBeNull();
+
+    await h.app.loadFileToCanvas(
+      await API.loadFile("./fixtures/fixture_library.excalidrawlib"),
+      null,
+    );
+
+    await API.drop([
+      {
+        kind: "file",
+        type: MIME_TYPES.excalidrawlib,
+        file: await API.loadFile("./fixtures/fixture_library.excalidrawlib"),
+      },
+    ]);
+
+    await waitFor(async () => {
+      expect(await h.app.library.getLatestLibrary()).toEqual([]);
+    });
+  });
+
   it("should load library from file picker", async () => {
     const { container } = await render(<Excalidraw />);
 
