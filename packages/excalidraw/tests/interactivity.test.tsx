@@ -11,6 +11,7 @@ import {
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
 import { actionZoomIn } from "../actions/actionCanvas";
+import { actionBindText } from "../actions";
 import { createPasteEvent, serializeAsClipboardJSON } from "../clipboard";
 import { DefaultSidebar, Excalidraw, Footer, MainMenu } from "../index";
 import { getShortcutKey } from "../shortcut";
@@ -1870,6 +1871,125 @@ describe("renderHostElement", () => {
     ).toBe(false);
 
     expect(h.state.activeEmbeddable).toBe(null);
+  });
+
+  it("lets a host consume native activation before Excalidraw text editing", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+      backgroundColor: "red",
+      fillStyle: "solid",
+    });
+    const nativeElement = API.createElement({
+      type: "rectangle",
+      x: 100,
+      y: 10,
+      width: 60,
+      height: 40,
+      backgroundColor: "blue",
+      fillStyle: "solid",
+    });
+    const onElementActivate = vi.fn(
+      (element: ExcalidrawElement) => element.id === hostElement.id,
+    );
+
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        onElementActivate={onElementActivate}
+        initialData={{ elements: [hostElement, nativeElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+    Object.assign(document, {
+      elementFromPoint: () => GlobalTestState.canvas,
+    });
+
+    UI.clickTool("selection");
+    mouse.doubleClickAt(40, 30);
+
+    expect(onElementActivate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: hostElement.id }),
+    );
+    expect(await getTextEditor({ waitForEditor: false })).toBe(null);
+
+    API.setSelectedElements([hostElement]);
+    Keyboard.keyPress("Enter");
+
+    expect(onElementActivate).toHaveBeenCalledTimes(2);
+    expect(await getTextEditor({ waitForEditor: false })).toBe(null);
+
+    mouse.doubleClickAt(130, 30);
+    expect(onElementActivate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: nativeElement.id }),
+    );
+    const nativeEditor = await getTextEditor();
+    expect(nativeEditor).not.toBe(null);
+    Keyboard.exitTextEditor(nativeEditor);
+
+    API.setAppState({ viewModeEnabled: true });
+    expect(h.state.viewModeEnabled).toBe(true);
+    API.setSelectedElements([hostElement]);
+    Keyboard.keyPress("Enter");
+
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+
+    API.setAppState({ viewModeEnabled: false, openDialog: { name: "help" } });
+    Keyboard.keyDown("Enter");
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+    API.setAppState({ openDialog: null });
+
+    const focusedButton = document.createElement("button");
+    focusedButton.type = "button";
+    GlobalTestState.renderResult.container.append(focusedButton);
+    focusedButton.focus();
+    Keyboard.keyDown("Enter", focusedButton);
+    expect(onElementActivate).toHaveBeenCalledTimes(4);
+    focusedButton.remove();
+  });
+
+  it("applies host text eligibility to API binding", async () => {
+    const hostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const textElement = API.createElement({
+      type: "text",
+      x: 20,
+      y: 20,
+      text: "host label",
+      width: 60,
+      height: 20,
+    });
+
+    await render(
+      <Excalidraw
+        isElementTextEditable={(element) => element.id !== hostElement.id}
+        initialData={{ elements: [hostElement, textElement] }}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    API.setSelectedElements([hostElement, textElement]);
+    h.app.actionManager.executeAction(actionBindText, "api");
+
+    const currentHostElement = h.elements.find(
+      (element) => element.id === hostElement.id,
+    );
+    const currentTextElement = h.elements.find(
+      (element) => element.id === textElement.id,
+    );
+    expect(currentHostElement?.boundElements).toHaveLength(0);
+    expect(currentTextElement).toEqual(
+      expect.objectContaining({ containerId: null }),
+    );
   });
 
   it("preserves host surface order and image transforms", async () => {

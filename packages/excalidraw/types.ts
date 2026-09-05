@@ -1010,6 +1010,19 @@ export interface ExcalidrawProps {
       nativeEvent: MouseEvent | React.PointerEvent<HTMLCanvasElement>;
     }>,
   ) => void;
+  /**
+   * Called when a native element is activated by pointer or keyboard input.
+   * Return `true` to consume the activation and prevent Excalidraw's default
+   * native activation behavior. Returning `false`, or omitting this callback,
+   * preserves the default behavior.
+   */
+  onElementActivate?: (element: NonDeletedExcalidrawElement) => boolean;
+  /**
+   * Controls whether a native element may enter text editing. When omitted,
+   * all elements pass this host policy and Excalidraw applies its usual
+   * structural text-editing checks.
+   */
+  isElementTextEditable?: (element: NonDeletedExcalidrawElement) => boolean;
   onPointerDown?: (
     activeTool: AppState["activeTool"],
     pointerDownState: PointerDownState,
@@ -1222,6 +1235,7 @@ export type AppClassProperties = {
   pasteFromClipboard: App["pasteFromClipboard"];
   id: App["id"];
   onInsertElements: App["onInsertElements"];
+  isElementTextEditable: App["isElementTextEditable"];
   onExportImage: App["onExportImage"];
   viewport: App["viewport"];
   addFiles: App["addFiles"];

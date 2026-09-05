@@ -136,7 +136,11 @@ const getHints = ({
     });
   }
 
-  if (selectedElements.length === 1 && isTextElement(selectedElements[0])) {
+  if (
+    selectedElements.length === 1 &&
+    isTextElement(selectedElements[0]) &&
+    app.isElementTextEditable(selectedElements[0])
+  ) {
     return t("hints.text_selected", {
       shortcut: getTaggedShortcutKey("Enter"),
     });
@@ -222,7 +226,8 @@ const getHints = ({
       if (
         !appState.newElement &&
         !appState.selectedElementsAreBeingDragged &&
-        isTextBindableContainer(selectedElements[0])
+        isTextBindableContainer(selectedElements[0]) &&
+        app.isElementTextEditable(selectedElements[0])
       ) {
         const bindTextToElement = t("hints.bindTextToElement", {
           shortcut: getTaggedShortcutKey("Enter"),

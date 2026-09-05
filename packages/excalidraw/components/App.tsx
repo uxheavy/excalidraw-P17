@@ -928,6 +928,31 @@ class App extends React.Component<AppProps, AppState> {
     return props.interaction !== false && typeof props.interaction !== "object";
   }
 
+  public isElementTextEditable = (element: ExcalidrawElement): boolean => {
+    if (!isNonDeletedElement(element)) {
+      return false;
+    }
+
+    const isEditable = this.props.isElementTextEditable;
+    if (isEditable && !isEditable(element)) {
+      return false;
+    }
+
+    if (isTextElement(element) && element.containerId) {
+      const container = getContainerElement(
+        element,
+        this.scene.getNonDeletedElementsMap(),
+      );
+      return (
+        !container ||
+        !isEditable ||
+        (isNonDeletedElement(container) && isEditable(container))
+      );
+    }
+
+    return true;
+  };
+
   /**
    * Whether element links render their link icon and are clickable.
    * True when fully interactive, or when `interaction: { enabled: { links:
@@ -5612,15 +5637,6 @@ class App extends React.Component<AppProps, AppState> {
           this.state,
         );
 
-        if (
-          selectedElements.length === 1 &&
-          isImageElement(selectedElements[0]) &&
-          event.key === KEYS.ENTER
-        ) {
-          this.startImageCropping(selectedElements[0]);
-          return;
-        }
-
         // Shape switching
         if (event.key === KEYS.ESCAPE) {
           this.updateEditorAtom(convertElementTypePopupAtom, null);
@@ -5776,6 +5792,29 @@ class App extends React.Component<AppProps, AppState> {
           event.preventDefault();
           event.stopPropagation();
           hostToolbarItem.onSelect();
+          return;
+        }
+      }
+
+      if (
+        event.key === KEYS.ENTER &&
+        !this.state.openDialog &&
+        !this.state.contextMenu &&
+        !isInteractive(event.target)
+      ) {
+        const selectedElements = this.scene.getSelectedElements(this.state);
+        if (
+          selectedElements.length === 1 &&
+          this.props.onElementActivate?.(selectedElements[0])
+        ) {
+          event.preventDefault();
+          return;
+        }
+        if (
+          selectedElements.length === 1 &&
+          isImageElement(selectedElements[0])
+        ) {
+          this.startImageCropping(selectedElements[0]);
           return;
         }
       }
@@ -5983,8 +6022,9 @@ class App extends React.Component<AppProps, AppState> {
               }
             }
           } else if (
-            isTextElement(selectedElement) ||
-            isValidTextContainer(selectedElement)
+            (isTextElement(selectedElement) ||
+              isValidTextContainer(selectedElement)) &&
+            this.isElementTextEditable(selectedElement)
           ) {
             let container;
             if (!isTextElement(selectedElement)) {
@@ -6635,17 +6675,22 @@ class App extends React.Component<AppProps, AppState> {
     const selectedElement = selectedElements[0]!;
 
     if (isTextElement(selectedElement)) {
-      return selectedElement;
+      return this.isElementTextEditable(selectedElement)
+        ? selectedElement
+        : null;
     }
 
-    if (!container) {
+    if (!container || !this.isElementTextEditable(selectedElement)) {
       return null;
     }
 
-    return getBoundTextElement(
+    const textElement = getBoundTextElement(
       selectedElement,
       this.scene.getNonDeletedElementsMap(),
     ) as NonDeleted<ExcalidrawTextElement> | null;
+    return textElement && this.isElementTextEditable(textElement)
+      ? textElement
+      : null;
   }
 
   private getSelectedTextEditingContainerAtPosition(
@@ -6663,6 +6708,10 @@ class App extends React.Component<AppProps, AppState> {
     }
 
     const selectedElement = selectedElements[0]!;
+
+    if (!this.isElementTextEditable(selectedElement)) {
+      return undefined;
+    }
 
     if (isTextElement(selectedElement)) {
       return null;
@@ -6692,7 +6741,12 @@ class App extends React.Component<AppProps, AppState> {
     const element = this.getElementAtPosition(x, y, {
       includeBoundTextElement: true,
     });
-    if (element && isTextElement(element) && !element.isDeleted) {
+    if (
+      element &&
+      isTextElement(element) &&
+      !element.isDeleted &&
+      this.isElementTextEditable(element)
+    ) {
       return element;
     }
     return null;
@@ -6942,7 +6996,8 @@ class App extends React.Component<AppProps, AppState> {
     const elements = this.scene.getNonDeletedElements();
     const selectedElements = this.scene.getSelectedElements(this.state);
     if (selectedElements.length === 1) {
-      return isTextBindableContainer(selectedElements[0], false)
+      return isTextBindableContainer(selectedElements[0], false) &&
+        this.isElementTextEditable(selectedElements[0])
         ? selectedElements[0]
         : null;
     }
@@ -6979,7 +7034,10 @@ class App extends React.Component<AppProps, AppState> {
       }
     }
 
-    return isTextBindableContainer(hitElement, false) ? hitElement : null;
+    return isTextBindableContainer(hitElement, false) &&
+      this.isElementTextEditable(hitElement)
+      ? hitElement
+      : null;
   }
 
   /**
@@ -7023,6 +7081,10 @@ class App extends React.Component<AppProps, AppState> {
      */
     arrowEndpoint?: ArrowEndpoint | null;
   }) => {
+    if (container && !this.isElementTextEditable(container)) {
+      return;
+    }
+
     let shouldBindToContainer = false;
 
     // Resolved here rather than by the caller so that the stroke width the
@@ -7071,6 +7133,13 @@ class App extends React.Component<AppProps, AppState> {
       ? null
       : this.getSelectedTextElement(container) ||
         this.getTextElementAtPosition(sceneX, sceneY);
+
+    if (
+      existingTextElement &&
+      !this.isElementTextEditable(existingTextElement)
+    ) {
+      return;
+    }
 
     const fontFamily =
       existingTextElement?.fontFamily || this.state.currentItemFontFamily;
@@ -7312,6 +7381,11 @@ class App extends React.Component<AppProps, AppState> {
       this.state,
     );
 
+    const hitElement = this.getElementAtPosition(sceneX, sceneY);
+    if (hitElement && this.props.onElementActivate?.(hitElement)) {
+      return;
+    }
+
     if (selectedElements.length === 1 && isLinearElement(selectedElements[0])) {
       const selectedLinearElement: ExcalidrawLinearElement =
         selectedElements[0];
@@ -7448,6 +7522,10 @@ class App extends React.Component<AppProps, AppState> {
       // shouldn't edit/create text when inside line editor (often false positive)
 
       if (!this.state.selectedLinearElement?.isEditing) {
+        if (hitElement && !this.isElementTextEditable(hitElement)) {
+          return;
+        }
+
         const container =
           // skip binding to container on dblclick when holding ctrl
           !event[KEYS.CTRL_OR_CMD] &&
@@ -10054,6 +10132,10 @@ class App extends React.Component<AppProps, AppState> {
       const element = this.getElementAtPosition(sceneX, sceneY, {
         includeBoundTextElement: true,
       });
+
+      if (element && !this.isElementTextEditable(element)) {
+        return;
+      }
 
       // FIXME
       let container = this.getTextBindableContainerAtPosition(sceneX, sceneY);
