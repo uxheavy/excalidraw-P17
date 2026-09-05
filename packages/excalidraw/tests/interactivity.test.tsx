@@ -862,6 +862,7 @@ describe("host UI", () => {
             id: "host-menu-item",
             label: "Host menu item",
             checked: true,
+            shortcuts: [{ key: "ArrowLeft", ctrlOrCmd: true }],
             onSelect,
           },
         ],
@@ -878,6 +879,9 @@ describe("host UI", () => {
         document.querySelector("[aria-label='Host menu item']"),
       ).toHaveAttribute("aria-pressed", "true"),
     );
+    expect(
+      document.querySelector("[aria-label='Host menu item']"),
+    ).toHaveAttribute("aria-keyshortcuts", "Control+ArrowLeft Meta+ArrowLeft");
 
     GlobalTestState.renderResult.rerender(
       <Excalidraw hostToolbarItems={getItems(true)} />,
@@ -944,7 +948,21 @@ describe("host UI", () => {
           autoshape: [{ key: "x", shiftKey: true }],
           rectangle: [{ key: "r", ctrlOrCmd: true, altKey: true }],
         }}
-        renderTopLeftUI={() => <input data-testid="host-input" />}
+        renderTopLeftUI={() => (
+          <>
+            <input data-testid="host-input" />
+            <div
+              data-testid="host-editable"
+              contentEditable
+              suppressContentEditableWarning
+            >
+              <span data-testid="host-editable-child">Editable</span>
+            </div>
+            <a href="#host-link" data-testid="host-link">
+              Host link
+            </a>
+          </>
+        )}
       />,
     );
     const editor = container.querySelector(".excalidraw")!;
@@ -966,6 +984,14 @@ describe("host UI", () => {
     fireEvent.keyDown(editor, { key: "w", isComposing: true });
     expect(onSelect).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(queryContainer("[data-testid='host-input']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-editable-child']")!, {
+      key: "w",
+    });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(queryContainer("[data-testid='host-link']")!, {
       key: "w",
     });
     expect(onSelect).toHaveBeenCalledTimes(1);

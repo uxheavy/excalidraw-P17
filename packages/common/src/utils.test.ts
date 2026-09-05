@@ -25,8 +25,14 @@ describe("@excalidraw/common/utils", () => {
       const iframeWindow = iframe.contentWindow!;
       const textarea = iframeDocument.createElement("textarea");
       const button = iframeDocument.createElement("button");
+      const anchor = iframeDocument.createElement("a");
+      const editable = iframeDocument.createElement("div");
+      const editableChild = iframeDocument.createElement("span");
       const toolIcon = iframeDocument.createElement("div");
       toolIcon.className = "ToolIcon__icon";
+      editable.setAttribute("contenteditable", "true");
+      editable.append(editableChild);
+      iframeDocument.body.append(anchor, editable);
 
       expect(textarea).not.toBeInstanceOf(HTMLTextAreaElement);
       expect(textarea).toBeInstanceOf(
@@ -35,6 +41,8 @@ describe("@excalidraw/common/utils", () => {
       expect(isInputLike(textarea)).toBe(true);
       expect(isWritableElement(textarea)).toBe(true);
       expect(isInteractive(button)).toBe(true);
+      expect(isInteractive(anchor)).toBe(true);
+      expect(isInteractive(editableChild)).toBe(true);
       expect(isToolIcon(toolIcon)).toBe(true);
 
       iframeDocument.body.append(textarea);

@@ -5859,7 +5859,12 @@ class App extends React.Component<AppProps, AppState> {
           event.stopPropagation();
 
           return;
-        } else if (event.key === KEYS.Q) {
+        } else if (
+          event.key === KEYS.Q &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
           this.toggleLock("keyboard");
           event.stopPropagation();
           return;

@@ -73,11 +73,13 @@ export const findActiveHostToolbarItem = (
 ): HostToolbarButton | null => {
   for (const item of items ?? []) {
     if (isHostToolbarMenu(item)) {
-      const child = item.items.find((candidate) => candidate.checked);
+      const child = item.items.find(
+        (candidate) => candidate.checked && candidate.onCancel,
+      );
       if (child) {
         return child;
       }
-    } else if (item.checked) {
+    } else if (item.checked && item.onCancel) {
       return item;
     }
   }
@@ -146,6 +148,9 @@ const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
             icon={child.icon}
             shortcut={child.shortcuts?.map(getShortcutLabel).join(" ")}
             aria-label={child.label}
+            aria-keyshortcuts={child.shortcuts
+              ?.flatMap(getAriaShortcutLabels)
+              .join(" ")}
             selected={child.checked}
             aria-pressed={child.checked}
             disabled={item.disabled || child.disabled}

@@ -16,6 +16,7 @@ import {
   getToolShortcutKeys,
 } from "../components/Tools";
 import {
+  findActiveHostToolbarItem,
   findHostToolbarItemByShortcut,
   getHostToolbarShortcutCollisions,
 } from "../components/HostToolbar";
@@ -282,6 +283,24 @@ describe("findShapeByKey()", () => {
     ).toBeNull();
   });
 
+  it("selects the checked host command that can cancel", () => {
+    const checked = {
+      id: "checked",
+      label: "Checked",
+      checked: true,
+      onSelect: vi.fn(),
+    } as const;
+    const cancellable = {
+      id: "cancellable",
+      label: "Cancellable",
+      checked: true,
+      onSelect: vi.fn(),
+      onCancel: vi.fn(),
+    } as const;
+
+    expect(findActiveHostToolbarItem([checked, cancellable])).toBe(cancellable);
+  });
+
   it("reports collisions across host and resolved native shortcuts", () => {
     expect(
       getHostToolbarShortcutCollisions(
@@ -355,6 +374,18 @@ describe("props.activeTool (forced tool)", () => {
     GlobalTestState.renderResult.rerender(
       <Excalidraw handleKeyboardGlobally={true} />,
     );
+    expect(h.state.activeTool.locked).toBe(true);
+  });
+
+  it("does not toggle the tool lock for modified Q", async () => {
+    await render(<Excalidraw handleKeyboardGlobally={true} />);
+
+    for (const modifier of ["ctrlKey", "metaKey", "altKey"] as const) {
+      fireEvent.keyDown(document, { key: "q", [modifier]: true });
+      expect(h.state.activeTool.locked).toBe(false);
+    }
+
+    fireEvent.keyDown(document, { key: "q" });
     expect(h.state.activeTool.locked).toBe(true);
   });
 
