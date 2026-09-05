@@ -227,6 +227,20 @@ describe("findShapeByKey()", () => {
         shortcuts: [{ key: "w" }],
         onSelect,
       },
+      {
+        id: "disabled-menu",
+        type: "menu",
+        label: "Disabled menu",
+        disabled: true,
+        items: [
+          {
+            id: "disabled-menu-item",
+            label: "Disabled menu item",
+            shortcuts: [{ key: "m" }],
+            onSelect: vi.fn(),
+          },
+        ],
+      },
     ] as const;
 
     expect(
@@ -245,6 +259,12 @@ describe("findShapeByKey()", () => {
       findHostToolbarItemByShortcut(
         items,
         new KeyboardEvent("keydown", { key: "W", metaKey: true }),
+      ),
+    ).toBeNull();
+    expect(
+      findHostToolbarItemByShortcut(
+        items,
+        new KeyboardEvent("keydown", { key: "M" }),
       ),
     ).toBeNull();
   });

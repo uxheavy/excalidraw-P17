@@ -1,12 +1,17 @@
 import { queryByText, queryByTestId } from "@testing-library/react";
 import { useMemo } from "react";
 
-import { THEME } from "@excalidraw/common";
+import {
+  DEFAULT_SIDEBAR,
+  LIBRARY_SIDEBAR_TAB,
+  THEME,
+} from "@excalidraw/common";
 
 import { t } from "../i18n";
 import { DefaultSidebar, Excalidraw, Footer, MainMenu } from "../index";
 import { actionExportWithDarkMode } from "../actions/actionExport";
 
+import { API } from "./helpers/api";
 import {
   act,
   fireEvent,
@@ -514,6 +519,21 @@ describe("<Excalidraw/>", () => {
       expect(
         hostRender.container.querySelector("[aria-label='host sidebar']"),
       ).not.toBe(null);
+    });
+
+    it("should close a library sidebar that becomes unavailable", async () => {
+      await render(<Excalidraw UIOptions={{ library: false }} />);
+
+      act(() => {
+        API.setAppState({
+          openSidebar: {
+            name: DEFAULT_SIDEBAR.name,
+            tab: LIBRARY_SIDEBAR_TAB,
+          },
+        });
+      });
+
+      await waitFor(() => expect(h.state.openSidebar).toBe(null));
     });
   });
 

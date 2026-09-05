@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { useEffect } from "react";
 
 import {
   CANVAS_SEARCH_TAB,
@@ -80,6 +81,15 @@ export const DefaultSidebar = Object.assign(
       const setAppState = useExcalidrawSetAppState();
       const { UIOptions } = useAppProps();
       const libraryEnabled = UIOptions.library !== false;
+
+      useEffect(() => {
+        if (
+          !libraryEnabled &&
+          appState.openSidebar?.tab === LIBRARY_SIDEBAR_TAB
+        ) {
+          setAppState({ openSidebar: null });
+        }
+      }, [appState.openSidebar?.tab, libraryEnabled, setAppState]);
 
       const { DefaultSidebarTabTriggersTunnel } = useTunnels();
 

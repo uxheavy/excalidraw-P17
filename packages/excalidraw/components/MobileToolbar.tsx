@@ -288,7 +288,10 @@ export const MobileToolbar = ({ app, setAppState }: MobileToolbarProps) => {
             <DropdownMenu.Item
               onSelect={() => app.setActiveTool({ type: "frame" })}
               icon={frameToolIcon}
-              shortcut={KEYS.F.toLocaleUpperCase()}
+              shortcut={
+                getToolShortcut("frame", app.props.toolShortcutOverrides) ??
+                undefined
+              }
               data-testid="toolbar-frame"
               selected={frameToolSelected}
               disabled={isToolButtonDisabled(app, "frame")}

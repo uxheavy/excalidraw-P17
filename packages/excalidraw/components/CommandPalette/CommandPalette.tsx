@@ -53,7 +53,7 @@ import {
   historyCommandIcon,
 } from "../icons";
 
-import { TOOLS, getToolLetter } from "../Tools";
+import { TOOLS, getToolLetter, getToolShortcut } from "../Tools";
 import { canChangeBackgroundColor, canChangeStrokeColor } from "../Actions";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { activeConfirmDialogAtom } from "../ActiveConfirmDialog";
@@ -531,7 +531,13 @@ function CommandPaletteInner({
               return acc;
             }
 
-            const shortcut = getToolLetter(value) || config.numericKey;
+            const hasShortcutOverride = Object.prototype.hasOwnProperty.call(
+              appProps.toolShortcutOverrides ?? {},
+              value,
+            );
+            const shortcut = hasShortcutOverride
+              ? getToolShortcut(value, appProps.toolShortcutOverrides)
+              : getToolLetter(value) || config.numericKey;
 
             const command: CommandPaletteItem = {
               label: t(`toolBar.${value}`),

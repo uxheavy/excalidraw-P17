@@ -634,6 +634,16 @@ class App extends React.Component<AppProps, AppState> {
   );
 
   private excalidrawContainerRef = React.createRef<HTMLDivElement>();
+  private renderedHostElementIds = new Set<ExcalidrawElement["id"]>();
+
+  private isHostSurfaceElement = (element: ExcalidrawElement) =>
+    isIframeLikeElement(element) || this.renderedHostElementIds.has(element.id);
+
+  private syncOwnerDocumentLanguage = () => {
+    const language = getLanguage();
+    this.ownerDocument.documentElement.lang = language.code;
+    this.ownerDocument.documentElement.dir = language.rtl ? "rtl" : "ltr";
+  };
 
   public get ownerDocument(): Document {
     return (
@@ -818,6 +828,7 @@ class App extends React.Component<AppProps, AppState> {
 
   constructor(props: AppProps) {
     super(props);
+    this.syncOwnerDocumentLanguage();
     const defaultAppState = getDefaultAppState();
     const {
       viewModeEnabled = false,
@@ -2106,6 +2117,7 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   private renderHostElements() {
+    this.renderedHostElementIds.clear();
     const renderHostElement = this.props.renderHostElement;
     if (!renderHostElement) {
       return null;
@@ -2143,6 +2155,7 @@ class App extends React.Component<AppProps, AppState> {
             if (!content) {
               return null;
             }
+            this.renderedHostElementIds.add(element.id);
 
             return (
               <div
@@ -2165,7 +2178,11 @@ class App extends React.Component<AppProps, AppState> {
                   style={{
                     width: `${element.width}px`,
                     height: `${element.height}px`,
-                    transform: `rotate(${element.angle}rad)`,
+                    transform: `rotate(${element.angle}rad)${
+                      isImageElement(element)
+                        ? ` scale(${element.scale[0]}, ${element.scale[1]})`
+                        : ""
+                    }`,
                   }}
                 >
                   {content}
@@ -3841,6 +3858,7 @@ class App extends React.Component<AppProps, AppState> {
 
   public async componentDidMount() {
     this.unmounted = false;
+    this.syncOwnerDocumentLanguage();
     this.api = this.createExcalidrawAPI();
 
     this.excalidrawContainerValue.container =
@@ -3996,6 +4014,7 @@ class App extends React.Component<AppProps, AppState> {
     selectGroupsForSelectedElements.clearCache();
     touchTimeout = 0;
     this.ownerDocument.documentElement.style.overscrollBehaviorX = "";
+    this.renderedHostElementIds.clear();
   }
 
   private onResize = withBatchedUpdates(() => {
@@ -4287,6 +4306,7 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   componentDidUpdate(prevProps: AppProps, prevState: AppState) {
+    this.syncOwnerDocumentLanguage();
     // must be updated *before* state change listeners are triggered below
     if (!this._initialized && !this.state.isLoading) {
       this._initialized = true;
@@ -5708,6 +5728,25 @@ class App extends React.Component<AppProps, AppState> {
         return;
       }
 
+      // Handle Alt key for bind mode
+      if (event.key === KEYS.ALT) {
+        if (this.state.activeTool.type === "bucketfill") {
+          this.bucketFill.openTemporaryEyeDropper();
+          event.preventDefault();
+          return;
+        } else if (getFeatureFlag("COMPLEX_BINDINGS")) {
+          this.handleSkipBindMode();
+        } else {
+          maybeHandleArrowPointlikeDrag({ app: this, event });
+        }
+      }
+
+      if (this.actionManager.handleKeyDown(event)) {
+        return;
+      }
+
+      // Native action shortcuts take precedence over host commands. Host
+      // commands run only after the shared action registry declines the event.
       if (
         !this.state.openDialog &&
         !this.state.contextMenu &&
@@ -5734,23 +5773,6 @@ class App extends React.Component<AppProps, AppState> {
           hostToolbarItem.onSelect();
           return;
         }
-      }
-
-      // Handle Alt key for bind mode
-      if (event.key === KEYS.ALT) {
-        if (this.state.activeTool.type === "bucketfill") {
-          this.bucketFill.openTemporaryEyeDropper();
-          event.preventDefault();
-          return;
-        } else if (getFeatureFlag("COMPLEX_BINDINGS")) {
-          this.handleSkipBindMode();
-        } else {
-          maybeHandleArrowPointlikeDrag({ app: this, event });
-        }
-      }
-
-      if (this.actionManager.handleKeyDown(event)) {
-        return;
       }
 
       // view mode hardcoded from upstream -> disable tool switching for now
@@ -6770,7 +6792,10 @@ class App extends React.Component<AppProps, AppState> {
       includeLockedElements?: boolean;
     },
   ): NonDeleted<ExcalidrawElement>[] {
-    const iframeLikes: Ordered<NonDeleted<ExcalidrawIframeLikeElement>>[] = [];
+    const hostSurfaceElements: Ordered<NonDeletedExcalidrawElement>[] = [];
+    const nativeEmbedElements: Ordered<
+      NonDeleted<ExcalidrawIframeLikeElement>
+    >[] = [];
 
     const elementsMap = this.scene.getNonDeletedElementsMap();
 
@@ -6796,9 +6821,9 @@ class App extends React.Component<AppProps, AppState> {
         return containingFrame &&
           this.state.frameRendering.enabled &&
           this.state.frameRendering.clip &&
-          // iframe-like elements are rendered as DOM overlays and are not
-          // visually clipped by their containing frames
-          !isIframeLikeElement(element)
+          // DOM-backed host surfaces are not visually clipped by their
+          // containing frames, just like native embeds.
+          !this.isHostSurfaceElement(element)
           ? isCursorInFrame(
               { x, y },
               containingFrame as NonDeleted<ExcalidrawFrameLikeElement>,
@@ -6809,15 +6834,22 @@ class App extends React.Component<AppProps, AppState> {
       .filter((el) => {
         // The parameter elements comes ordered from lower z-index to higher.
         // We want to preserve that order on the returned array.
-        // Exception being embeddables which should be on top of everything else in
-        // terms of hit testing.
+        // DOM-backed host surfaces should be on top of everything else in terms
+        // of hit testing, just like native embeddables.
         if (isIframeLikeElement(el)) {
-          iframeLikes.push(el);
+          nativeEmbedElements.push(el);
+          return false;
+        }
+        if (this.renderedHostElementIds.has(el.id)) {
+          hostSurfaceElements.push(el);
           return false;
         }
         return true;
       })
-      .concat(iframeLikes) as NonDeleted<ExcalidrawElement>[];
+      .concat(
+        hostSurfaceElements,
+        nativeEmbedElements,
+      ) as NonDeleted<ExcalidrawElement>[];
 
     return elements;
   }

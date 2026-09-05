@@ -180,7 +180,8 @@ export type EditorShortcut = Readonly<{
   altKey?: boolean;
 }>;
 
-export type ExcalidrawToolId = ToolType;
+/** Native tools that are backed by the shared `TOOLS` shortcut registry. */
+export type ExcalidrawToolId = Exclude<ToolType, "magicframe">;
 
 export type HostToolbarButton = Readonly<{
   id: string;
@@ -1043,11 +1044,14 @@ export interface ExcalidrawProps {
     element: NonDeleted<ExcalidrawEmbeddableElement>,
   ) => void;
   /**
-   * Renders host-owned content for visible non-URL native elements. The host
-   * decides which elements it owns by returning content or null. Elements
-   * with links and iframe-like types are not passed to this callback, so the
-   * rendered content cannot enter Excalidraw's URL or iframe interaction
-   * paths.
+   * Renders host-owned content for visible non-URL native elements. Returning
+   * content registers a host surface above the canvas and below native embeds;
+   * hit testing uses the same host-before-embed tier order. Returning null
+   * leaves the native element unchanged. Host surfaces follow the native
+   * element transform and opacity, including image flips, and preserve their
+   * scene order. Elements with links and iframe-like types are not passed to
+   * this callback, so rendered content cannot enter Excalidraw's URL or iframe
+   * interaction paths.
    */
   renderHostElement?: (
     element: NonDeletedExcalidrawElement,

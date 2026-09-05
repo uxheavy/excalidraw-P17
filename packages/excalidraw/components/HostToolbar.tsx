@@ -50,6 +50,7 @@ export const findHostToolbarItemByShortcut = (
     if (isHostToolbarMenu(item)) {
       const child = item.items.find(
         (candidate) =>
+          !item.disabled &&
           !candidate.disabled &&
           (candidate.shortcuts ?? []).some((shortcut) =>
             shortcutMatches(shortcut, event),
@@ -132,7 +133,7 @@ const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
         className={clsx({ "App-toolbar__extra-tools-trigger--selected": open })}
         onToggle={() => setOpen((value) => !value)}
       >
-        {item.icon}
+        {item.icon ?? item.label}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content
         onClickOutside={() => setOpen(false)}
@@ -159,6 +160,7 @@ const HostToolbarMenuView = ({ item }: { item: HostToolbarMenuDescriptor }) => {
 const HostToolbarButtonView = ({ item }: { item: HostToolbarButton }) => {
   const shared = {
     icon: item.icon,
+    label: item.label,
     keyBindingLabel: item.shortcuts?.[0]
       ? getShortcutLabel(item.shortcuts[0])
       : undefined,

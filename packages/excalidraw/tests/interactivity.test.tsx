@@ -1,7 +1,12 @@
 import React from "react";
 import { vi } from "vitest";
 
-import { CODES, CURSOR_TYPE, POINTER_BUTTON } from "@excalidraw/common";
+import {
+  CANVAS_SEARCH_TAB,
+  CODES,
+  CURSOR_TYPE,
+  POINTER_BUTTON,
+} from "@excalidraw/common";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 
@@ -812,6 +817,13 @@ describe("host UI", () => {
             label: "Host tool",
             onSelect: () => {},
           },
+          {
+            id: "host-toolbar-toggle",
+            label: "Host toggle",
+            checked: false,
+            shortcuts: [{ key: "t", altKey: true }],
+            onSelect: () => {},
+          },
         ]}
       />,
     );
@@ -821,6 +833,19 @@ describe("host UI", () => {
         .querySelector(".App-toolbar")
         ?.querySelector("[data-testid='host-toolbar-host-toolbar-tool']"),
     ).not.toBe(null);
+    expect(
+      container.querySelector("[data-testid='host-toolbar-host-toolbar-tool']"),
+    ).toHaveTextContent("Host tool");
+    expect(
+      container.querySelector(
+        "[data-testid='host-toolbar-host-toolbar-toggle']",
+      ),
+    ).toHaveTextContent("Host toggle");
+    expect(
+      container.querySelector(
+        "[data-testid='host-toolbar-host-toolbar-toggle']",
+      ),
+    ).toHaveAttribute("aria-keyshortcuts", "Alt+T");
   });
 
   it("dispatches host shortcuts only from the guarded editor surface", async () => {
@@ -848,6 +873,12 @@ describe("host UI", () => {
             ],
             onSelect: () => {},
           },
+          {
+            id: "host-search",
+            label: "Host search",
+            shortcuts: [{ key: "f", ctrlOrCmd: true }],
+            onSelect,
+          },
         ]}
         toolShortcutOverrides={{
           autoshape: [{ key: "x", shiftKey: true }],
@@ -874,6 +905,10 @@ describe("host UI", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(queryContainer("[aria-label='Sources']")!, { key: "w" });
     expect(onSelect).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(editor, { key: "f", ctrlKey: true });
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(h.state.openSidebar?.tab).toBe(CANVAS_SEARCH_TAB);
 
     fireEvent.keyDown(editor, { key: "?" });
     await waitFor(() =>
@@ -1610,6 +1645,67 @@ describe("renderHostElement", () => {
     ).toBe(false);
 
     expect(h.state.activeEmbeddable).toBe(null);
+  });
+
+  it("preserves host surface order and image transforms", async () => {
+    const firstHostElement = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const secondHostElement = API.createElement({
+      type: "rectangle",
+      x: 80,
+      y: 10,
+      width: 60,
+      height: 40,
+    });
+    const flippedImage = API.createElement({
+      type: "image",
+      x: 10,
+      y: 80,
+      width: 120,
+      height: 80,
+      scale: [-1, 1],
+      fileId: "host-image",
+    });
+    const renderHostElement = vi.fn((element) => {
+      if (element.id === firstHostElement.id) {
+        return <div data-testid="first-host-content">First host</div>;
+      }
+      if (element.id === secondHostElement.id) {
+        return <div data-testid="second-host-content">Second host</div>;
+      }
+      if (element.id === flippedImage.id) {
+        return <div data-testid="flipped-host-content">Image host</div>;
+      }
+      return null;
+    });
+
+    await render(
+      <Excalidraw
+        renderHostElement={renderHostElement}
+        initialData={{
+          elements: [firstHostElement, secondHostElement, flippedImage],
+        }}
+      />,
+    );
+
+    const hostContents = [
+      ...GlobalTestState.renderResult.container.querySelectorAll(
+        "[data-testid$='-host-content']",
+      ),
+    ].map((element) => element.getAttribute("data-testid"));
+    expect(hostContents).toEqual([
+      "first-host-content",
+      "second-host-content",
+      "flipped-host-content",
+    ]);
+    expect(
+      queryContainer("[data-testid='flipped-host-content']")?.parentElement,
+    ).toHaveStyle("transform: rotate(0rad) scale(-1, 1)");
   });
 
   it("leaves URL embeddable rendering and activation unchanged", async () => {

@@ -1,8 +1,6 @@
 import clsx from "clsx";
 import { useState } from "react";
 
-import { KEYS } from "@excalidraw/common";
-
 import { useTunnels } from "../context/tunnels";
 import { t } from "../i18n";
 
@@ -117,7 +115,10 @@ const ExtraToolsDropdown = ({
         <DropdownMenu.Item
           onSelect={() => app.setActiveTool({ type: "frame" })}
           icon={frameToolIcon}
-          shortcut={KEYS.F.toLocaleUpperCase()}
+          shortcut={
+            getToolShortcut("frame", app.props.toolShortcutOverrides) ??
+            undefined
+          }
           data-testid="toolbar-frame"
           selected={frameToolSelected}
           disabled={isToolButtonDisabled(app, "frame")}
