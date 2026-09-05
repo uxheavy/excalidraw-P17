@@ -543,6 +543,51 @@ describe("toggling `interaction` at runtime", () => {
     expect(editor.oninput).toBe(null);
   });
 
+  it("notifies the host when unmounting finalizes an empty text element", async () => {
+    mockBoundingClientRect();
+    const onChange = vi.fn();
+    await render(
+      <Excalidraw
+        autoFocus={true}
+        handleKeyboardGlobally={true}
+        onChange={onChange}
+      />,
+    );
+    await waitFor(() => expect(h.state.width).toBe(200));
+
+    const text = API.createElement({
+      type: "text",
+      text: "before",
+      x: 20,
+      y: 20,
+    });
+    API.setElements([text]);
+    API.setSelectedElements([text]);
+    Keyboard.keyPress("Enter");
+
+    const editor = await getTextEditor();
+    updateTextEditor(editor, "");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const onChangeCallsBeforeUnmount = onChange.mock.calls.length;
+
+    GlobalTestState.renderResult.unmount();
+
+    expect(onChange.mock.calls.length).toBeGreaterThan(
+      onChangeCallsBeforeUnmount,
+    );
+    expect(onChange.mock.lastCall?.[0]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: text.id,
+          isDeleted: true,
+          originalText: "",
+        }),
+      ]),
+    );
+  });
+
   it("commits and closes frame-name editing when interaction is disabled", async () => {
     mockBoundingClientRect();
     await render(<Excalidraw autoFocus={true} handleKeyboardGlobally={true} />);

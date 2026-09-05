@@ -70,7 +70,7 @@
     "test:all": "yarn test:typecheck && yarn test:code && yarn test:other && yarn test:app --watch=false",
     "test:app": "vitest",
     "test:code": "eslint --max-warnings=0 --ext .js,.ts,.tsx .",
-    "test:anti-slop": "oxlint -c .oxlintrc.anti-slop.json --deny-warnings",
+    "audit:anti-slop": "oxlint -c .oxlintrc.anti-slop.json --deny-warnings",
     "test:other": "yarn prettier --list-different",
     "test:typecheck": "tsc",
     "test:update": "yarn test:app --update --watch=false",

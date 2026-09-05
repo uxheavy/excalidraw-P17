@@ -6526,12 +6526,31 @@ class App extends React.Component<AppProps, AppState> {
       }),
       onSubmit: withBatchedUpdates(({ viaKeyboard, nextOriginalText }) => {
         this.textWysiwygSubmitHandler = null;
-        if (this.unmounted) {
-          return;
-        }
-
         const isDeleted = !nextOriginalText.trim();
         updateElement(nextOriginalText, isDeleted);
+
+        if (isDeleted) {
+          fixBindingsAfterDeletion(this.scene.getNonDeletedElements(), [
+            element,
+          ]);
+        }
+
+        if (!isDeleted || isExistingElement) {
+          this.store.scheduleCapture();
+        }
+
+        if (this.unmounted) {
+          const elements = this.scene.getElementsIncludingDeleted();
+          this.store.commit(
+            this.scene.getElementsMapIncludingDeleted(),
+            this.state,
+          );
+          if (!this.state.isLoading) {
+            this.props.onChange?.(elements, this.state, this.files);
+            this.onChangeEmitter.trigger(elements, this.state, this.files);
+          }
+          return;
+        }
 
         // keyboard-submit keeps focus on the edited object. For bound text, keep
         // the container selected even if the text becomes empty and is deleted.
@@ -6560,16 +6579,6 @@ class App extends React.Component<AppProps, AppState> {
               ),
             }));
           });
-        }
-
-        if (isDeleted) {
-          fixBindingsAfterDeletion(this.scene.getNonDeletedElements(), [
-            element,
-          ]);
-        }
-
-        if (!isDeleted || isExistingElement) {
-          this.store.scheduleCapture();
         }
 
         flushSync(() => {

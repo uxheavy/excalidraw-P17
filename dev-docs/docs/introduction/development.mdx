@@ -78,6 +78,16 @@ yarn test:update
 yarn test:code
 ```
 
+### Run the anti-slop audit
+
+```bash
+yarn audit:anti-slop
+```
+
+This diagnostic runs the enabled anti-slop rules with warnings denied. It may
+report existing repository findings and is advisory until those findings are
+resolved; it is not part of the passing test suite.
+
 ### Docker Compose
 
 You can use docker-compose to work on Excalidraw locally if you don't want to setup a Node.js env.
