@@ -5843,6 +5843,14 @@ class App extends React.Component<AppProps, AppState> {
             this.setActiveTool({ type: shape }, { toggle: true });
           }
 
+          if (
+            event.ctrlKey ||
+            event.metaKey ||
+            event.altKey ||
+            event.shiftKey
+          ) {
+            event.preventDefault();
+          }
           event.stopPropagation();
 
           return;

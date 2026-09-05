@@ -20,6 +20,7 @@ import { Keyboard, Pointer, UI } from "./helpers/ui";
 import { getTextEditor, updateTextEditor } from "./queries/dom";
 import {
   act,
+  createEvent,
   fireEvent,
   GlobalTestState,
   mockBoundingClientRect,
@@ -889,8 +890,14 @@ describe("host UI", () => {
     );
     const editor = container.querySelector(".excalidraw")!;
 
-    fireEvent.keyDown(editor, { key: "r", metaKey: true, altKey: true });
+    const modifiedToolEvent = createEvent.keyDown(editor, {
+      key: "r",
+      metaKey: true,
+      altKey: true,
+    });
+    fireEvent(editor, modifiedToolEvent);
     expect(h.state.activeTool.type).toBe("rectangle");
+    expect(modifiedToolEvent.defaultPrevented).toBe(true);
 
     fireEvent.keyDown(editor, { key: "w" });
     expect(onSelect).toHaveBeenCalledTimes(1);

@@ -7,7 +7,11 @@ import type { PointerType } from "@excalidraw/element/types";
 
 import { trackEvent } from "../analytics";
 import { t } from "../i18n";
-import { getShortcutLabel, shortcutMatches } from "../shortcut";
+import {
+  getAriaShortcutLabels,
+  getShortcutLabel,
+  shortcutMatches,
+} from "../shortcut";
 
 import { IconButton } from "./IconButton";
 import { ToolPopover } from "./ToolPopover";
@@ -189,6 +193,11 @@ export const getToolShortcutKeys = (
   overrides?: ToolShortcutOverrides,
 ) => getToolShortcuts(type, overrides).map(getShortcutLabel);
 
+export const getToolAriaShortcut = (
+  type: ToolbarToolType,
+  overrides?: ToolShortcutOverrides,
+) => getToolShortcuts(type, overrides).flatMap(getAriaShortcutLabels).join(" ");
+
 export const getToolLetter = (
   type: ToolbarToolType,
   overrides?: ToolShortcutOverrides,
@@ -295,6 +304,9 @@ const createToolButton = (
     const shortcut = hideShortcut
       ? null
       : getToolShortcut(shortcutType, app.props.toolShortcutOverrides);
+    const ariaShortcut = hideShortcut
+      ? null
+      : getToolAriaShortcut(shortcutType, app.props.toolShortcutOverrides);
 
     return (
       <IconButton
@@ -310,7 +322,7 @@ const createToolButton = (
             : getToolLetter(shortcutType, app.props.toolShortcutOverrides)
         }
         aria-label={label}
-        aria-keyshortcuts={shortcut ?? undefined}
+        aria-keyshortcuts={ariaShortcut || undefined}
         data-testid={`toolbar-${type}`}
         onSelect={({ pointerType }) => {
           if (!app.state.penDetected && pointerType === "pen") {

@@ -58,9 +58,14 @@ export const actionGoToCollaborator = register<Collaborator>({
       captureUpdate: CaptureUpdateAction.EVENTUALLY,
     };
   },
-  PanelComponent: ({ updateData, data, appState, appProps }) => {
-    const { socketId, collaborator, withName, isBeingFollowed } =
-      data as GoToCollaboratorComponentProps;
+  PanelComponent: ({ updateData, data }) => {
+    const {
+      socketId,
+      collaborator,
+      withName,
+      isBeingFollowed,
+      renderCollaboratorAvatar,
+    } = data as GoToCollaboratorComponentProps;
 
     const background = getClientColor(socketId, collaborator);
     const statusClassNames = clsx({
@@ -72,7 +77,7 @@ export const actionGoToCollaborator = register<Collaborator>({
     });
     const name = collaborator.username || "";
     const avatarOnClick = withName ? () => {} : () => updateData(collaborator);
-    const customAvatar = appProps.renderCollaboratorAvatar?.({
+    const customAvatar = renderCollaboratorAvatar?.({
       name,
       src: collaborator.avatarUrl,
       size: withName ? 24 : 28,
@@ -89,9 +94,7 @@ export const actionGoToCollaborator = register<Collaborator>({
     const renderedAvatar = customAvatar ? (
       <div
         className={clsx("Avatar", statusClassNames)}
-        onClick={
-          !withName && !collaborator.isCurrentUser ? avatarOnClick : undefined
-        }
+        onClick={!withName ? avatarOnClick : undefined}
       >
         {customAvatar}
       </div>

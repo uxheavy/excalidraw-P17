@@ -10,7 +10,11 @@ import {
 import { Excalidraw } from "../index";
 import { getShortcutKey } from "../shortcut";
 
-import { findShapeByKey, getToolShortcutKeys } from "../components/Tools";
+import {
+  findShapeByKey,
+  getToolAriaShortcut,
+  getToolShortcutKeys,
+} from "../components/Tools";
 import {
   findHostToolbarItemByShortcut,
   getHostToolbarShortcutCollisions,
@@ -208,6 +212,9 @@ describe("findShapeByKey()", () => {
     expect(
       getToolShortcutKeys("rectangle", app.props.toolShortcutOverrides),
     ).toEqual([`${getShortcutKey("CtrlOrCmd")}+${getShortcutKey("Alt")}+R`]);
+    expect(
+      getToolAriaShortcut("rectangle", app.props.toolShortcutOverrides),
+    ).toBe("Control+Alt+R Meta+Alt+R");
   });
 
   it("resolves host shortcuts while ignoring disabled commands", () => {

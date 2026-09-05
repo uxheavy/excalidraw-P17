@@ -1,7 +1,11 @@
 import clsx from "clsx";
 import { useState } from "react";
 
-import { getShortcutLabel, shortcutMatches } from "../shortcut";
+import {
+  getAriaShortcutLabels,
+  getShortcutLabel,
+  shortcutMatches,
+} from "../shortcut";
 
 import { getToolShortcuts, TOOLS } from "./Tools";
 import { IconButton } from "./IconButton";
@@ -23,15 +27,6 @@ const shortcutId = (shortcut: EditorShortcut) =>
   `${shortcut.ctrlOrCmd ? "ctrl-or-cmd:" : ""}${shortcut.altKey ? "alt:" : ""}${
     shortcut.shiftKey ? "shift:" : ""
   }${shortcut.key.toLowerCase()}`;
-
-const getAriaShortcutLabels = (shortcut: EditorShortcut) => {
-  const suffix = `${shortcut.altKey ? "Alt+" : ""}${
-    shortcut.shiftKey ? "Shift+" : ""
-  }${shortcut.key.toUpperCase()}`;
-  return shortcut.ctrlOrCmd
-    ? [`Control+${suffix}`, `Meta+${suffix}`]
-    : [suffix];
-};
 
 export const getHostToolbarShortcuts = (
   item: HostToolbarItem | HostToolbarButton,
