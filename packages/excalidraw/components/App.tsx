@@ -2185,7 +2185,10 @@ class App extends React.Component<AppProps, AppState> {
             return (
               <div
                 key={element.id}
-                className="excalidraw__host-element-container"
+                className={clsx("excalidraw__host-element-container", {
+                  "excalidraw__host-element-container--underlay":
+                    this.props.hostElementLayer === "underlay",
+                })}
                 style={{
                   transform: `translate(${x - this.state.offsetLeft}px, ${
                     y - this.state.offsetTop
@@ -6915,8 +6918,9 @@ class App extends React.Component<AppProps, AppState> {
       .filter((el) => {
         // The parameter elements comes ordered from lower z-index to higher.
         // We want to preserve that order on the returned array.
-        // DOM-backed host surfaces should be on top of everything else in terms
-        // of hit testing, just like native embeddables.
+        // DOM-backed host surfaces are hit-tested in the layer they paint in:
+        // above canvas elements (like native embeddables) as an overlay, or
+        // below every canvas element as an underlay.
         if (isIframeLikeElement(el)) {
           nativeEmbedElements.push(el);
           return false;
@@ -6926,13 +6930,13 @@ class App extends React.Component<AppProps, AppState> {
           return false;
         }
         return true;
-      })
-      .concat(
-        hostSurfaceElements,
-        nativeEmbedElements,
-      ) as NonDeleted<ExcalidrawElement>[];
+      });
 
-    return elements;
+    return (
+      this.props.hostElementLayer === "underlay"
+        ? [...hostSurfaceElements, ...elements, ...nativeEmbedElements]
+        : [...elements, ...hostSurfaceElements, ...nativeEmbedElements]
+    ) as NonDeleted<ExcalidrawElement>[];
   }
 
   getElementHitThreshold(element: ExcalidrawElement) {

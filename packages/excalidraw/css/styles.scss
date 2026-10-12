@@ -1004,6 +1004,10 @@ body.excalidraw-cursor-resize * {
   transform-origin: top left;
   pointer-events: none;
 
+  &.excalidraw__host-element-container--underlay {
+    z-index: 0;
+  }
+
   .excalidraw__host-element-container__inner {
     position: relative;
     overflow: hidden;

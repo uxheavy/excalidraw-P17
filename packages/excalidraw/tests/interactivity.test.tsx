@@ -1992,6 +1992,61 @@ describe("renderHostElement", () => {
     );
   });
 
+  it("hit-tests underlay host surfaces below canvas elements", async () => {
+    const outline = API.createElement({
+      type: "rectangle",
+      x: 40,
+      y: 20,
+      width: 80,
+      height: 40,
+    });
+    const card = API.createElement({
+      type: "rectangle",
+      x: 10,
+      y: 10,
+      width: 60,
+      height: 40,
+      backgroundColor: "#000000",
+      fillStyle: "solid",
+    });
+    const renderHostElement = (element: { id: string }) =>
+      element.id === card.id ? <div data-testid="card">Card</div> : null;
+    const onOutlineEdge = { x: 40, y: 30 };
+    const insideCardOnly = { x: 20, y: 20 };
+
+    const { rerender } = await render(
+      <Excalidraw
+        renderHostElement={renderHostElement}
+        initialData={{ elements: [outline, card] }}
+      />,
+    );
+    await waitFor(() =>
+      expect(queryContainer("[data-testid=card]")).not.toBe(null),
+    );
+    expect(
+      h.app.getElementAtPosition(onOutlineEdge.x, onOutlineEdge.y)?.id,
+    ).toBe(card.id);
+
+    rerender(
+      <Excalidraw
+        renderHostElement={renderHostElement}
+        hostElementLayer="underlay"
+        initialData={{ elements: [outline, card] }}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        queryContainer(".excalidraw__host-element-container--underlay"),
+      ).not.toBe(null),
+    );
+    expect(
+      h.app.getElementAtPosition(onOutlineEdge.x, onOutlineEdge.y)?.id,
+    ).toBe(outline.id);
+    expect(
+      h.app.getElementAtPosition(insideCardOnly.x, insideCardOnly.y)?.id,
+    ).toBe(card.id);
+  });
+
   it("preserves host surface order and image transforms", async () => {
     const firstHostElement = API.createElement({
       type: "rectangle",

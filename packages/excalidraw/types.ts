@@ -1070,6 +1070,15 @@ export interface ExcalidrawProps {
     element: NonDeletedExcalidrawElement,
     appState: AppState,
   ) => JSX.Element | null;
+  /**
+   * Where host surfaces from `renderHostElement` sit. `"overlay"` (default)
+   * paints them above the canvas and hit-tests them above canvas elements.
+   * `"underlay"` paints them beneath the canvas, so drawings show on top of
+   * them, and hit-tests them below every canvas element; keep the canvas
+   * background transparent (`viewBackgroundColor: "transparent"`) so they
+   * stay visible.
+   */
+  hostElementLayer?: "overlay" | "underlay";
   renderEmbeddable?: (
     element: NonDeleted<ExcalidrawEmbeddableElement>,
     appState: AppState,
